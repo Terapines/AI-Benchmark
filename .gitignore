@@ -1,0 +1,20 @@
+# Triton builds
+build/
+build-*/
+
+# Environments
+.venv
+venv/
+venv.bak/
+
+# VS Code project files
+.vscode
+.vs
+
+
+# Vim
+*.swp
+
+*.llir
+*.asm
+*.s
