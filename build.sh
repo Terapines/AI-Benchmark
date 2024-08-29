@@ -40,14 +40,10 @@ build_triton_kernel_lib() {
     ### FIXME: Modified triton-cpu to generate these files to the BUILD_DIR direcly
     KERNEL_AUX_FILE_DIR=${BUILD_DIR}/aux/src/${name}/
     mkdir -p ${KERNEL_AUX_FILE_DIR}
-    SRC_KERNEL_AUX_FILE_DIR=${SRC_DIR}/triton/${name}/
-    cp ${SRC_KERNEL_AUX_FILE_DIR}/*.llir ${KERNEL_AUX_FILE_DIR}
-    cp ${SRC_KERNEL_AUX_FILE_DIR}/*.cpp ${KERNEL_AUX_FILE_DIR}
-    cp ${SRC_KERNEL_AUX_FILE_DIR}/*.h ${KERNEL_LAUNCHER_INCLUDE_DIR}
 
     echo ${kernel}
     # compile triton kernel: .py --> .llir + launcher.cpp
-    # ${PYC} ${kernel} ${KERNEL_AUX_FILE_DIR} ${KERNEL_LAUNCHER_INCLUDE_DIR}
+    KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
 
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do

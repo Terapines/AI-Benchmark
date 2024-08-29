@@ -1,5 +1,9 @@
 #include "kernel/layernorm.h"
-#include "layernorm_launcher.h"
+/// TODO: Better way to include all kernel header file
+#include "_layer_norm_bwd_dwdb_launcher.h"
+#include "_layer_norm_bwd_dx_fused_launcher.h"
+#include "_layer_norm_fwd_fused_launcher.h"
+
 #include "support/support.h"
 #include <cassert>
 #include <iostream>

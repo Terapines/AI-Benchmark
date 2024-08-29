@@ -53,7 +53,7 @@ int main(int argc, char *argv[]) {
   float *t_out = (float *)malloc(R * C * sizeof(float));
 
   auto triton_softmax_begin_time = std::chrono::high_resolution_clock::now();
-  softmax_kernel_run_omp(R, 1, 1, &softmax_kernel, t_out, input, C, C, C);
+  softmax_kernel_omp(R, 1, 1, &softmax_kernel, t_out, input, C, C, C);
   auto triton_softmax_end_time = std::chrono::high_resolution_clock::now();
 
   std::chrono::duration<double> triton_softmax_time_interval =
