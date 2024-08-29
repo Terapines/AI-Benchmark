@@ -2,7 +2,7 @@
 
 DIR=`dirname $0`
 
-BENCHMARK=${DIR}/bin/
+BENCHMARK=${DIR}/build/bin/
 
 REPORT_FILE=${BENCHMARK}/report.xls
 
@@ -96,5 +96,5 @@ echo "" >> ${REPORT_FILE}
 # May add triton-cpu version?
 
 echo "${ZCC}" >> ${REPORT_FILE}
-# ${ZCC} --version >> ${REPORT_FILE}
+${ZCC} --version >> ${REPORT_FILE}
 echo "" >> ${REPORT_FILE}

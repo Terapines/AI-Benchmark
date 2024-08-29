@@ -15,21 +15,6 @@ unsigned int next_power_of_2(unsigned int n) {
   return n + 1;
 }
 
-int check_tensor(float *a, float *b, int n, const char *label) {
-  bool ok = true;
-
-  for (int i = 0; i < n; i++) {
-
-    if (fabs(a[i] - b[i]) > 1e-2) {
-      ok = false;
-      break;
-    }
-  }
-  std::string ACC = ok ? "OK" : "NOT OK";
-  printf("%s %s\n", label, ACC.c_str());
-  return ok;
-}
-
 std::vector<int> splitStringToInts(const std::string &str, char delimiter) {
   std::vector<int> result;
   std::stringstream ss(str);
