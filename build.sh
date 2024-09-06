@@ -56,7 +56,7 @@ build_triton_kernel_lib() {
     # build triton laucher: launcher.cpp --> .o
     for kernel_launcher in ${KERNEL_AUX_FILE_DIR}/*.cpp; do
       launcher_name=`basename ${kernel_launcher} .cpp`
-      ${ZCC} -c ${kernel_launcher} -o ${BUILD_DIR}/obj/triton/${launcher_name}.o
+      ${ZCC} -c ${kernel_launcher} -fopenmp -o ${BUILD_DIR}/obj/triton/${launcher_name}.o
     done
 
   done
@@ -74,7 +74,7 @@ build_driver(){
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    ${ZCC} ${main} -L ${BUILD_DIR}/lib -fopenmp=libgomp -lckernel -ltritonkernel -latomic -lsupport -fPIC -static -o ${KERNEL_BIN_DIR}/${name}.elf
+    ${ZCC} ${main} -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -latomic -lsupport -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
     # Data shape config
     cp ${SRC_DIR}/main/${name}.cfg  ${KERNEL_BIN_DIR}
   done
