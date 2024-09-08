@@ -3,6 +3,8 @@
 #include <time.h>
 #include <iostream>
 #include <chrono>
+#include <cassert>
+#include "support/support.h"
 #include "kernel/matmul.h"
 #include "matmul_kernel_launcher.h"
 
@@ -15,11 +17,26 @@ static void _launch(int gridX, int gridY, int gridZ, void* arg0, void* arg1, voi
     matmul_kernel_omp(gridX, gridY, gridZ, matmul_kernel, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
 }
 
-int main() {
-    int cnt = 100;
+int main(int argc, char *argv[]) {
+    int cnt = 10;
+
     int M = 179;
     int N = 321;
     int K = 167;
+    const int BLOCK_SIZE_M = 32;
+    const int BLOCK_SIZE_N = 64;
+
+    if (argc >= 2) {
+        std::vector<int> Shape = splitStringToInts(argv[1]);
+        if (Shape.size()) {
+            assert(Shape.size() == 4 && "Invalid shape format: MxNxKxCNT\n");
+            M = Shape.at(0);
+            N = Shape.at(1);
+            K = Shape.at(2);
+            cnt = Shape.at(3);
+        }
+    }
+
     int count;
     srand(time(0));
     printf("%s %s\n", __DATE__, __TIME__);
@@ -71,7 +88,7 @@ int main() {
     printf("Run kernel %d times.\n", cnt);
     high_resolution_clock::time_point beginTime = high_resolution_clock::now();
     for (int i = 0; i < cnt; i++) {
-        _launch(36, 1, 1, arg0, arg1, arg2, M, N, K, K, 1, N, 1, N, 1);
+        _launch(ceil(1.0*M/BLOCK_SIZE_M)*ceil(1.0*N/BLOCK_SIZE_N), 1, 1, arg0, arg1, arg2, M, N, K, K, 1, N, 1, N, 1);
     }
     high_resolution_clock::time_point endTime = high_resolution_clock::now();
     milliseconds timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
