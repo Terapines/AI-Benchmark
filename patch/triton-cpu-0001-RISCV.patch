@@ -1,0 +1,410 @@
+From e291874ec3440de4ec2dfb1e5ca730c5575fd1f3 Mon Sep 17 00:00:00 2001
+From: cuiwenfeng <wenfeng.cui@terapines.com>
+Date: Thu, 29 Aug 2024 14:58:52 +0800
+Subject: [PATCH] RISCV
+
+---
+ python/triton/compiler/compiler.py  |  16 +-
+ python/triton/runtime/jit.py        |   9 +
+ third_party/cpu/backend/compiler.py |   4 +-
+ third_party/cpu/backend/driver.py   | 264 ++++++++--------------------
+ 4 files changed, 88 insertions(+), 205 deletions(-)
+
+diff --git a/python/triton/compiler/compiler.py b/python/triton/compiler/compiler.py
+index 78c79b4a..d9c67259 100644
+--- a/python/triton/compiler/compiler.py
++++ b/python/triton/compiler/compiler.py
+@@ -365,7 +365,7 @@ class CompiledKernel:
+             file.suffix[1:]: file.read_bytes() if file.suffix[1:] == binary_ext else file.read_text()
+             for file in asm_files
+         }
+-        self.kernel = self.asm[binary_ext]
++        # self.kernel = self.asm[binary_ext]
+         # binaries are lazily initialized
+         # because it involves doing runtime things
+         # (e.g., checking amount of shared memory on current device)
+@@ -375,16 +375,16 @@ class CompiledKernel:
+     def _init_handles(self):
+         if self.module is not None:
+             return
+-        device = driver.active.get_current_device()
++        # device = driver.active.get_current_device()
+         # create launcher
+-        self.run = driver.active.launcher_cls(self.src, self.metadata)
++        self.run = driver.active.launcher_cls(self.src, self.metadata, self.name)
+         # not enough shared memory to run the kernel
+-        max_shared = driver.active.utils.get_device_properties(device)["max_shared_mem"]
+-        if self.metadata.shared > max_shared:
+-            raise OutOfResources(self.metadata.shared, max_shared, "shared memory")
++        # max_shared = driver.active.utils.get_device_properties(device)["max_shared_mem"]
++        # if self.metadata.shared > max_shared:
++        #     raise OutOfResources(self.metadata.shared, max_shared, "shared memory")
+         # TODO: n_regs, n_spills should be metadata generated when calling `ptxas`
+-        self.module, self.function, self.n_regs, self.n_spills = driver.active.utils.load_binary(
+-            self.name, self.kernel, self.metadata.shared, device)
++        # self.module, self.function, self.n_regs, self.n_spills = driver.active.utils.load_binary(
++        #     self.name, self.kernel, self.metadata.shared, device)
+ 
+     def __getattribute__(self, name):
+         if name == 'run':
+diff --git a/python/triton/runtime/jit.py b/python/triton/runtime/jit.py
+index af3bb7cc..efa844b4 100644
+--- a/python/triton/runtime/jit.py
++++ b/python/triton/runtime/jit.py
+@@ -659,6 +659,15 @@ class JITFunction(KernelInterface[T]):
+             )
+             self.cache[device_key][key] = kernel
+ 
++        launcher_src_dir = os.getenv("KERNEL_AUX_FILE_DIR")
++        if launcher_src_dir is not None:
++            os.makedirs(launcher_src_dir, mode=0o777, exist_ok=True)
++            llir_path = os.path.join(launcher_src_dir, kernel.name + ".llir")
++            # print("llir_path: ", llir_path)
++            with open(llir_path, "w") as f:
++                f.write(kernel.asm["llir"])
++
++
+         # Check that used global values have not changed.
+         not_present = object()
+         for (name, _), (val, globals_dict) in self.used_global_vals.items():
+diff --git a/third_party/cpu/backend/compiler.py b/third_party/cpu/backend/compiler.py
+index cbc5d60b..af34945f 100644
+--- a/third_party/cpu/backend/compiler.py
++++ b/third_party/cpu/backend/compiler.py
+@@ -226,8 +226,8 @@ class CPUBackend(BaseBackend):
+         stages["ttcir"] = lambda src, metadata: self.make_ttcir(src, metadata, options)
+         stages["tttcir"] = lambda src, metadata: self.make_tttcir(src, metadata, options)
+         stages["llir"] = lambda src, metadata: self.make_llir(src, metadata, options)
+-        stages["asm"] = lambda src, metadata: self.make_asm(src, metadata, options)
+-        stages["so"] = lambda src, metadata: self.make_so(src, metadata, options)
++        # stages["asm"] = lambda src, metadata: self.make_asm(src, metadata, options)
++        # stages["so"] = lambda src, metadata: self.make_so(src, metadata, options)
+ 
+     @functools.lru_cache()
+     def hash(self):
+diff --git a/third_party/cpu/backend/driver.py b/third_party/cpu/backend/driver.py
+index f17a0cba..69f8bc0d 100644
+--- a/third_party/cpu/backend/driver.py
++++ b/third_party/cpu/backend/driver.py
+@@ -21,23 +21,48 @@ library_dirs = [os.path.join(_dirname, "lib"), _triton_C_dir]
+ libraries = ["stdc++"]
+ 
+ 
+-def compile_module_from_src(src, name):
+-    key = hashlib.md5(src.encode("utf-8")).hexdigest()
+-    cache = get_cache_manager(key)
+-    cache_path = cache.get_file(f"{name}.so")
+-    if cache_path is None:
+-        with tempfile.TemporaryDirectory() as tmpdir:
+-            src_path = os.path.join(tmpdir, "main.cpp")
+-            with open(src_path, "w") as f:
+-                f.write(src)
+-            so = _build(name, src_path, tmpdir, library_dirs, include_dirs, libraries)
+-            with open(so, "rb") as f:
+-                cache_path = cache.put(f.read(), f"{name}.so", binary=True)
+-    import importlib.util
+-    spec = importlib.util.spec_from_file_location(name, cache_path)
+-    mod = importlib.util.module_from_spec(spec)
+-    spec.loader.exec_module(mod)
+-    return mod
++def compile_module_from_src(inc, src, kernel_name):
++    launcher_include_dir = os.getenv("KERNEL_LAUNCHER_INCLUDE_DIR")
++    launcher_src_dir = os.getenv("KERNEL_AUX_FILE_DIR")
++    if launcher_include_dir is None:
++       launcher_include_dir = tempfile.mkdtemp()
++
++    os.makedirs(launcher_include_dir, mode=0o777, exist_ok=True)
++
++    if launcher_src_dir is None:
++       launcher_src_dir = launcher_include_dir
++
++    os.makedirs(launcher_src_dir, mode=0o777, exist_ok=True)
++
++
++    # print("launcher include dir: ", launcher_include_dir)
++    # print("launcher src dir: ", launcher_src_dir)
++    inc_path = os.path.join(launcher_include_dir, kernel_name+"_launcher.h")
++    with open(inc_path, "w") as f:
++        f.write(inc)
++
++    src_path = os.path.join(launcher_src_dir, kernel_name+"_launcher.cpp")
++    with open(src_path, "w") as f:
++        f.write(src)
++
++    # key = hashlib.md5(src.encode("utf-8")).hexdigest()
++    # cache = get_cache_manager(key)
++    # cache_path = cache.get_file(f"{name}.so")
++    # if cache_path is None:
++        # with tempfile.TemporaryDirectory() as tmpdir:
++            # tmpdir = tempfile.mkdtemp()
++            # print(tmpdir)
++            # src_path = os.path.join(tmpdir, "main.cpp")
++            # with open(src_path, "w") as f:
++            #     f.write(src)
++            # so = _build(name, src_path, tmpdir, library_dirs, include_dirs, libraries)
++            # with open(so, "rb") as f:
++            #     cache_path = cache.put(f.read(), f"{name}.so", binary=True)
++    # import importlib.util
++    # spec = importlib.util.spec_from_file_location(name, cache_path)
++    # mod = importlib.util.module_from_spec(spec)
++    # spec.loader.exec_module(mod)
++    # return mod
+ 
+ 
+ # ------------------------
+@@ -96,7 +121,7 @@ def ty_to_cpp(ty):
+     }[ty]
+ 
+ 
+-def make_launcher(constants, signature, ids):
++def make_launcher(constants, signature, ids, kernel_name):
+     # Record the end of regular arguments;
+     # subsequent arguments are architecture-specific descriptors.
+     arg_decls = ', '.join(f"{ty_to_cpp(ty)} arg{i}" for i, ty in signature.items())
+@@ -122,123 +147,40 @@ def make_launcher(constants, signature, ids):
+             "uint64_t": "K",
+         }[ty]
+ 
+-    args_format = ''.join([format_of(_extracted_type(ty)) for ty in signature.values()])
+-    format = "iiiOKOOOO" + args_format
+-    arg_ptrs_list = ', '.join(f"&arg{i}" for i, ty in signature.items())
+     kernel_fn_args = [i for i in signature.keys() if i not in constants]
+     kernel_fn_args_list = ', '.join(f"arg{i}" for i in kernel_fn_args)
+     kernel_fn_arg_types = ', '.join([f"{ty_to_cpp(signature[i])}" for i in kernel_fn_args] + ["uint32_t"] * 6)
+ 
+-    # generate glue code
+-    src = f"""
+-#include <algorithm>
+-#include <cmath>
++    inc = f"""
++#include <stdint.h>
+ #include <cstddef>
+-#include <cstdlib>
+-#include <iomanip>
+-#include <iostream>
+-#include <omp.h>
+-#include <optional>
+-#include <stdio.h>
+-#include <string>
+-#include <memory>
+-
+-#define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
+-#include <Python.h>
+-
+-inline bool getBoolEnv(const std::string &env) {{
+-  const char *s = std::getenv(env.c_str());
+-  std::string str(s ? s : "");
+-  std::transform(str.begin(), str.end(), str.begin(),
+-                 [](unsigned char c) {{ return std::tolower(c); }});
+-  return str == "on" || str == "true" || str == "1";
+-}}
+ 
+-inline std::optional<int64_t> getIntEnv(const std::string &env) {{
+-  const char *cstr = std::getenv(env.c_str());
+-  if (!cstr)
+-    return std::nullopt;
++using {kernel_name}_kernel_ptr_t = void(*)({kernel_fn_arg_types});
+ 
+-  char *endptr;
+-  long int result = std::strtol(cstr, &endptr, 10);
+-  if (endptr == cstr)
+-    assert(false && "invalid integer");
+-  return result;
++extern "C"{{
++ // Pointer type (=Memref) becomes int64_t + MemRef struct
++ // FIXME: understand what this int64_t is used for.
++ void({kernel_name})({kernel_fn_arg_types});
+ }}
+ 
+-using kernel_ptr_t = void(*)({kernel_fn_arg_types});
+-
+-typedef struct _DevicePtrInfo {{
+-  void* dev_ptr;
+-  bool valid;
+-}} DevicePtrInfo;
+-
+-static inline DevicePtrInfo getPointer(PyObject *obj, int idx) {{
+-  DevicePtrInfo ptr_info;
+-  ptr_info.dev_ptr = 0;
+-  ptr_info.valid = true;
+-  if (PyLong_Check(obj)) {{
+-    ptr_info.dev_ptr = (void*) PyLong_AsLongLong(obj);
+-    return ptr_info;
+-  }}
+-  if (obj == Py_None) {{
+-    // valid nullptr
+-    return ptr_info;
+-  }}
+-  PyObject *ptr = PyObject_GetAttrString(obj, "data_ptr");
+-  if(ptr){{
+-    PyObject *empty_tuple = PyTuple_New(0);
+-    PyObject *ret = PyObject_Call(ptr, empty_tuple, NULL);
+-    Py_DECREF(empty_tuple);
+-    Py_DECREF(ptr);
+-    if (!PyLong_Check(ret)) {{
+-      PyErr_SetString(PyExc_TypeError, "data_ptr method of Pointer object must return 64-bit int");
+-      ptr_info.valid = false;
+-      return ptr_info;
+-    }}
+-    ptr_info.dev_ptr = (void*) PyLong_AsLongLong(ret);
+-    if(!ptr_info.dev_ptr) {{
+-      return ptr_info;
+-    }}
+-    Py_DECREF(ret);  // Thanks ChatGPT!
+-    return ptr_info;
+-  }}
+-  PyErr_SetString(PyExc_TypeError, "Pointer argument must be either uint64 or have data_ptr method");
+-  ptr_info.valid = false;
+-  return ptr_info;
+-}}
++void {kernel_name}_omp(uint32_t gridX, uint32_t gridY, uint32_t gridZ,
++                        {kernel_name}_kernel_ptr_t kernel_ptr {', ' + arg_decls if len(arg_decls) > 0 else ''});
++"""
+ 
+-static std::unique_ptr<uint32_t[][3]> get_all_grids(uint32_t gridX, uint32_t gridY, uint32_t gridZ) {{
+-  std::unique_ptr<uint32_t[][3]> grids(new uint32_t[gridX * gridY * gridZ][3]);
+-  // TODO: which order would be more effective for cache locality?
+-  for (uint32_t z = 0; z < gridZ; ++z) {{
+-    for (uint32_t y = 0; y < gridY; ++y) {{
+-      for (uint32_t x = 0; x < gridX; ++x) {{
+-        grids[z * gridY * gridX + y * gridX + x][0] = x;
+-        grids[z * gridY * gridX + y * gridX + x][1] = y;
+-        grids[z * gridY * gridX + y * gridX + x][2] = z;
+-      }}
+-    }}
+-  }}
+-  return grids;
+-}}
++    # generate glue code
++    src = f"""
++#include "{kernel_name}_launcher.h"
++#include "support/omp.h"
++#include "support/support.h"
++#include <algorithm>
++#include <optional>
++#include <stdio.h>
+ 
+-static void run_omp_kernels(uint32_t gridX, uint32_t gridY, uint32_t gridZ, kernel_ptr_t kernel_ptr {', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
++void {kernel_name}_omp(uint32_t gridX, uint32_t gridY, uint32_t gridZ, {kernel_name}_kernel_ptr_t kernel_ptr {', ' + arg_decls if len(arg_decls) > 0 else ''}) {{
+   // TODO: Consider using omp collapse(3) clause for simplicity?
+   auto all_grids = get_all_grids(gridX, gridY, gridZ);
+   size_t N = gridX * gridY * gridZ;
+ 
+-  if (getBoolEnv("TRITON_CPU_SINGLE_CORE")) {{
+-    if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
+-      printf("Single core launcher\\n");
+-
+-    for (size_t i = 0; i < N; ++i) {{
+-      const auto [x, y, z] = all_grids[i];
+-      (*kernel_ptr)({kernel_fn_args_list + ', ' if len(kernel_fn_args) > 0 else ''} x, y, z, gridX, gridY, gridZ);
+-    }}
+-    return;
+-  }}
+-
+   std::optional<int> max_threads = getIntEnv("TRITON_CPU_MAX_THREADS");
+   if (max_threads.has_value())
+     max_threads = std::max(1, std::min(max_threads.value(), omp_get_max_threads()));
+@@ -256,93 +198,25 @@ static void run_omp_kernels(uint32_t gridX, uint32_t gridY, uint32_t gridZ, kern
+   }}
+ }}
+ 
+-static PyObject* launch(PyObject* self, PyObject* args) {{
+-  int gridX, gridY, gridZ;
+-  PyObject *launch_enter_hook = NULL;
+-  PyObject *launch_exit_hook = NULL;
+-  PyObject *kernel_metadata = NULL;
+-  PyObject *launch_metadata = NULL;
+-  PyObject *py_obj_stream;
+-  void* pKrnl;
+-
+-  {' '.join([f"{_extracted_type(ty)} arg{i}; " for i, ty in signature.items()])}
+-  if(!PyArg_ParseTuple(args, \"{format}\", &gridX, &gridY, &gridZ, &py_obj_stream, &pKrnl,
+-                                       &kernel_metadata, &launch_metadata,
+-                                       &launch_enter_hook, &launch_exit_hook {', ' + arg_ptrs_list if len(signature) > 0 else ''})) {{
+-    return NULL;
+-  }}
+-
+-  void *pStream = PyLong_AsVoidPtr(py_obj_stream);
+-  kernel_ptr_t kernel_ptr = reinterpret_cast<kernel_ptr_t>(pKrnl);
+-
+-  // extract launch metadata
+-  if (launch_enter_hook != Py_None){{
+-    PyObject* args = Py_BuildValue("(O)", launch_metadata);
+-    PyObject* ret = PyObject_CallObject(launch_enter_hook, args);
+-    Py_DECREF(args);
+-    if (!ret)
+-      return NULL;
+-  }}
+-
+-  {"; ".join([f"DevicePtrInfo ptr_info{i} = getPointer(arg{i}, {i}); if (!ptr_info{i}.valid) return NULL;" if ty[0] == "*" else "" for i, ty in signature.items()])};
+-  run_omp_kernels(gridX, gridY, gridZ, kernel_ptr {',' + ', '.join(f"ptr_info{i}.dev_ptr" if ty[0]=="*" else f"arg{i}" for i, ty in signature.items()) if len(signature) > 0 else ''});
+-
+-  if(launch_exit_hook != Py_None){{
+-    PyObject* args = Py_BuildValue("(O)", launch_metadata);
+-    PyObject* ret = PyObject_CallObject(launch_exit_hook, args);
+-    Py_DECREF(args);
+-    if (!ret)
+-      return NULL;
+-  }}
+-
+-  if (PyErr_Occurred()) {{
+-    return NULL;
+-  }}
+-
+-  // return None
+-  Py_INCREF(Py_None);
+-  return Py_None;
+-}}
+-
+-static PyMethodDef ModuleMethods[] = {{
+-  {{"launch", launch, METH_VARARGS, "Entry point for all kernels with this signature"}},
+-  {{NULL, NULL, 0, NULL}} // sentinel
+-}};
+-
+-static struct PyModuleDef ModuleDef = {{
+-  PyModuleDef_HEAD_INIT,
+-  \"__triton_cpu_launcher\",
+-  NULL, //documentation
+-  -1, //size
+-  ModuleMethods
+-}};
+-
+-PyMODINIT_FUNC PyInit___triton_cpu_launcher(void) {{
+-  PyObject *m = PyModule_Create(&ModuleDef);
+-  if(m == NULL) {{
+-    return NULL;
+-  }}
+-  PyModule_AddFunctions(m, ModuleMethods);
+-  return m;
+-}}
+ """
+-    return src
++    return inc, src
+ 
+ 
+ class CPULauncher(object):
+ 
+-    def __init__(self, src, metadata):
++    def __init__(self, src, metadata, name):
+         ids = {"ids_of_const_exprs": src.fn.constexprs if hasattr(src, "fn") else tuple()}
+         constants = src.constants if hasattr(src, "constants") else dict()
+         cst_key = lambda i: src.fn.arg_names.index(i) if isinstance(i, str) else i
+         constants = {cst_key(key): value for key, value in constants.items()}
+         signature = {cst_key(key): value for key, value in src.signature.items()}
+-        src = make_launcher(constants, signature, ids)
+-        mod = compile_module_from_src(src, "__triton_cpu_launcher")
+-        self.launch = mod.launch
++        inc, src = make_launcher(constants, signature, ids, name)
++        compile_module_from_src(inc, src, name)
++        # self.launch = mod.launch
+ 
+     def __call__(self, *args, **kwargs):
+-        self.launch(*args, **kwargs)
++        # self.launch(*args, **kwargs)
++        pass
+ 
+ 
+ class CPUDriver(DriverBase):
+-- 
+2.37.2
+
