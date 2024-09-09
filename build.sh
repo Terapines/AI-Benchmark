@@ -49,7 +49,11 @@ build_triton_kernel_lib() {
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
       kernel_name=`basename ${kernel_ir} .llir`
       echo ${kernel_ir}
-      llc -march=riscv64 -mattr=+d,v  ${kernel_ir} -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+      # llc -march=riscv64 -mattr=+d,v  ${kernel_ir} -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+      # z++ -march=rv64gcv -fno-lto --target=riscv64-unknown-linux-gnu -S -x ir  -O2 ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+
+      ${ZCC} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+
       ${ZCC} -c -o ${BUILD_DIR}/obj/triton/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
     done
 
