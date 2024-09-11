@@ -17,8 +17,9 @@ __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
 
   for (size_t i = 0; i < height; ++i) {
     for (size_t d = 0; d < out_channel; ++d) {
+      // ZCC 3.2.4 not enable support outer loop vectorization
 // This pragma is used by outer loop vectorization.
-#pragma clang loop vectorize(assume_safety)
+      // #pragma clang loop vectorize(assume_safety)
 
       for (size_t j = d; j < width; j++) {
         out_idx = d * width * height + i * width + j;

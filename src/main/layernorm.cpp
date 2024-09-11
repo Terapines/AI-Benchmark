@@ -1,8 +1,13 @@
+#ifdef C_KERNEL_ENABLE
 #include "kernel/layernorm.h"
+#endif
+
+#ifdef TRITON_KERNEL_ENABLE
 /// TODO: Better way to include all kernel header file
 #include "_layer_norm_bwd_dwdb_launcher.h"
 #include "_layer_norm_bwd_dx_fused_launcher.h"
 #include "_layer_norm_fwd_fused_launcher.h"
+#endif
 
 #include "support/support.h"
 #include <cassert>
@@ -10,20 +15,24 @@
 #include <random>
 #include <stdio.h>
 
+#include <chrono>
+
 int main(int argc, char *argv[]) {
 
   std::vector<int> Shape = splitStringToInts(argv[1]);
 
   int N = 0; // input token length
   int D = 0; // embedding vector dimension
+  int RUN_COUNT = 10;
 
   if (Shape.size()) {
-    assert(Shape.size() == 2 && "Invalid shape format: NxD\n");
+    assert(Shape.size() == 3 && "Invalid shape format: NxDxRUN_COUNT\n");
     N = Shape.at(0);
     D = Shape.at(1);
+    RUN_COUNT = Shape.at(2);
   }
 
-  printf("Data shape %dx%d\n", N, D);
+  printf("Data shape %dx%dx%d\n", N, D, RUN_COUNT);
 
   assert(N != 0 && D != 0 && "Invalid shape\n");
 
@@ -51,6 +60,8 @@ int main(int argc, char *argv[]) {
 
   // now let's calculate everything ourselves
 
+  // c kernel
+#ifdef C_KERNEL_ENABLE
   // forward pass
   float *c_out = (float *)malloc(N * D * sizeof(float));
   float *c_mean = (float *)malloc(N * sizeof(float));
@@ -63,15 +74,26 @@ int main(int argc, char *argv[]) {
 
   auto c_layernorm_begin_time = std::chrono::high_resolution_clock::now();
 
-  layernorm_forward(c_out, c_mean, c_rstd, x, w, b, N, D);
-  layernorm_backward(c_dx, c_dw, c_db, dout, x, w, c_mean, c_rstd, N, D);
+  for (int i = 0; i < RUN_COUNT; i++) {
+    layernorm_forward(c_out, c_mean, c_rstd, x, w, b, N, D);
+    layernorm_backward(c_dx, c_dw, c_db, dout, x, w, c_mean, c_rstd, N, D);
+  }
 
   auto c_layernorm_end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> c_layernorm_time_interval =
       c_layernorm_end_time - c_layernorm_begin_time;
   /// NOTE: Format running time to generate performance report easily
   PRINT_KERNEL_RUNNING_TIME(C_KERNEL, c_layernorm_time_interval.count())
+  free(c_out);
+  free(c_mean);
+  free(c_rstd);
+  free(c_dx);
+  free(c_dw);
+  free(c_db);
+#endif
 
+  // triton kernel
+#ifdef TRITON_KERNEL_ENABLE
   float *t_out = (float *)malloc(N * D * sizeof(float));
   float *t_mean = (float *)malloc(N * sizeof(float));
   float *t_rstd = (float *)malloc(N * sizeof(float));
@@ -95,14 +117,16 @@ int main(int argc, char *argv[]) {
 
   auto triton_layernorm_begin_time = std::chrono::high_resolution_clock::now();
 
-  _layer_norm_fwd_fused_omp(N, 1, 1, &_layer_norm_fwd_fused, x, t_out, w, b,
-                            t_mean, t_rstd, D, D, 1e-5);
-  _layer_norm_bwd_dx_fused_omp(N, 1, 1, _layer_norm_bwd_dx_fused, t_dx, dout,
-                               t_dw_partial, t_db_partial, x, w, t_mean, t_rstd,
-                               locks, D, D);
-  _layer_norm_bwd_dwdb_omp(gridX, 1, 1, _layer_norm_bwd_dwdb, t_dw_partial,
-                           t_db_partial, t_dw, t_db, std::min(GROUP_SIZE_M, N),
-                           D);
+  for (int i = 0; i < RUN_COUNT; i++) {
+    _layer_norm_fwd_fused_omp(N, 1, 1, &_layer_norm_fwd_fused, x, t_out, w, b,
+                              t_mean, t_rstd, D, D, 1e-5);
+    _layer_norm_bwd_dx_fused_omp(N, 1, 1, _layer_norm_bwd_dx_fused, t_dx, dout,
+                                 t_dw_partial, t_db_partial, x, w, t_mean,
+                                 t_rstd, locks, D, D);
+    _layer_norm_bwd_dwdb_omp(gridX, 1, 1, _layer_norm_bwd_dwdb, t_dw_partial,
+                             t_db_partial, t_dw, t_db,
+                             std::min(GROUP_SIZE_M, N), D);
+  }
 
   auto triton_layernorm_end_time = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> triton_layernorm_time_interval =
@@ -110,27 +134,6 @@ int main(int argc, char *argv[]) {
   /// NOTE: Format running time to generate performance report easily
   PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL,
                             triton_layernorm_time_interval.count())
-
-  // check correctness of backward pass
-  check_tensor(c_out, t_out, N * D, "out");
-  check_tensor(c_mean, t_mean, N, "mean");
-  check_tensor(c_rstd, t_rstd, N, "rstd");
-  check_tensor(c_dx, t_dx, N * D, "dx");
-  check_tensor(c_dw, t_dw, D, "dw");
-  check_tensor(c_db, t_db, D, "db");
-
-  free(x);
-  free(w);
-  free(b);
-  free(dout);
-
-  free(c_out);
-  free(c_mean);
-  free(c_rstd);
-  free(c_dx);
-  free(c_dw);
-  free(c_db);
-
   free(t_out);
   free(t_mean);
   free(t_rstd);
@@ -140,5 +143,20 @@ int main(int argc, char *argv[]) {
   free(locks);
   free(t_dw);
   free(t_db);
+#endif
+
+  // check correctness of backward pass
+  // check_tensor(c_out, t_out, N * D, "out");
+  // check_tensor(c_mean, t_mean, N, "mean");
+  // check_tensor(c_rstd, t_rstd, N, "rstd");
+  // check_tensor(c_dx, t_dx, N * D, "dx");
+  // check_tensor(c_dw, t_dw, D, "dw");
+  // check_tensor(c_db, t_db, D, "db");
+
+  free(x);
+  free(w);
+  free(b);
+  free(dout);
+
   return 0;
 }

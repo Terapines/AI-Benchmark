@@ -1,25 +1,25 @@
+#ifdef C_KERNEL_ENABLE
+#include "kernel/matmul.h"
+#endif
+
+#ifdef TRITON_KERNEL_ENABLE
+#include "matmul_kernel_launcher.h"
+#endif
+
+#include "support/support.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
 #include <iostream>
 #include <chrono>
 #include <cassert>
-#include "support/support.h"
-#include "kernel/matmul.h"
-#include "matmul_kernel_launcher.h"
 
 using namespace std;
 using std::chrono::high_resolution_clock;
 using std::chrono::milliseconds;
 
-
-static void _launch(int gridX, int gridY, int gridZ, void* arg0, void* arg1, void* arg2, int32_t arg3, int32_t arg4, int32_t arg5, int32_t arg6, int32_t arg7, int32_t arg8, int32_t arg9, int32_t arg10, int32_t arg11) {
-    matmul_kernel_omp(gridX, gridY, gridZ, matmul_kernel, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9, arg10, arg11);
-}
-
 int main(int argc, char *argv[]) {
     int cnt = 10;
-
     int M = 179;
     int N = 321;
     int K = 167;
@@ -85,16 +85,24 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+  // triton kernel
+#ifdef TRITON_KERNEL_ENABLE
     printf("Run kernel %d times.\n", cnt);
     high_resolution_clock::time_point beginTime = high_resolution_clock::now();
     for (int i = 0; i < cnt; i++) {
-        _launch(ceil(1.0*M/BLOCK_SIZE_M)*ceil(1.0*N/BLOCK_SIZE_N), 1, 1, arg0, arg1, arg2, M, N, K, K, 1, N, 1, N, 1);
+        matmul_kernel_omp(ceil(1.0*M/BLOCK_SIZE_M)*ceil(1.0*N/BLOCK_SIZE_N), 1, 1, matmul_kernel, arg0, arg1, arg2, M, N, K, K, 1, N, 1, N, 1 );
     }
     high_resolution_clock::time_point endTime = high_resolution_clock::now();
     milliseconds timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
     cout << "Running Time: " << timeInterval.count()  << " ms" << endl;
     cout << "Triton-cpu kernel: " << M*N*K*cnt/(timeInterval.count()/1000.0)/1e9  << " GFLOPS" << endl;
     fprintf(stderr, "Triton-cpu kernel: %f GFLOPS\n", M*N*K*cnt/(timeInterval.count()/1000.0)/1e9);
+
+    std::chrono::duration<double> triton_correlation_time_interval =
+        endTime - beginTime;
+    /// NOTE: Format running time to generate performance report easily
+    PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL,
+                                triton_correlation_time_interval.count())
 
     count = M * N;
     for (int i = 0; i < count; i++) {
@@ -103,19 +111,27 @@ int main(int argc, char *argv[]) {
         if (i == count - 1)
             printf("...\n");
     }
+#endif
 
+  // c kernel
+#ifdef C_KERNEL_ENABLE
     printf("Run matmul %d times.\n", cnt);
 
-    beginTime = high_resolution_clock::now();
+    high_resolution_clock::time_point beginTime = high_resolution_clock::now();
     for (int i = 0; i < cnt; i++) {
         matmul(arg0, arg1, buf, M, N, K);
     }
-    endTime = high_resolution_clock::now();
+    high_resolution_clock::time_point endTime = high_resolution_clock::now();
 
-    timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
+    milliseconds timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
     cout << "Running Time: " << timeInterval.count()  << " ms" << endl;
     cout << "c++ matmul: " << M*N*K*cnt/(timeInterval.count()/1000.0)/1e9  << " GFLOPS" << endl;
     fprintf(stderr, "c++ matmul: %f GFLOPS\n", M*N*K*cnt/(timeInterval.count()/1000.0)/1e9);
+
+    std::chrono::duration<double> c_correlation_time_interval =
+        endTime - beginTime;
+    /// NOTE: Format running time to generate performance report easily
+    PRINT_KERNEL_RUNNING_TIME(C_KERNEL, c_correlation_time_interval.count())
 
     count = M * N;
     for (int i = 0; i < count; i++) {
@@ -124,6 +140,7 @@ int main(int argc, char *argv[]) {
         if (i == count - 1)
             printf("...\n");
     }
+#endif
 
     /*count = M * N;
     for (int i = 0; i < count; i++) {

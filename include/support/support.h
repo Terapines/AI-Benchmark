@@ -1,6 +1,8 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <optional>
+#include <algorithm>
 
 unsigned int next_power_of_2(unsigned int n);
 
