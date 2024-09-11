@@ -1,10 +1,24 @@
 #include "kernel/layernorm.h"
+#include "support/omp.h"
+#include "support/support.h"
 #include <math.h>
 
 void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
                        float *weight, float *bias, const int N, const int D) {
   float eps = 1e-5f;
 
+  std::optional<int> max_threads = getIntEnv("TRITON_CPU_MAX_THREADS");
+  if (max_threads.has_value())
+    max_threads =
+        std::max(1, std::min(max_threads.value(), omp_get_max_threads()));
+  else
+    max_threads = omp_get_max_threads();
+
+  if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
+    printf("max_threads: %d\n", max_threads.value());
+
+    // For now, use the default chunk size, total iterations / max_threads.
+#pragma omp parallel for schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < N; i++) {
     // seek to the input position inp[i,:]
     float *inp_r = inp + i * D;
@@ -39,6 +53,18 @@ void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
 void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
                         float *inp, float *weight, float *mean, float *rstd,
                         const int N, const int D) {
+  std::optional<int> max_threads = getIntEnv("TRITON_CPU_MAX_THREADS");
+  if (max_threads.has_value())
+    max_threads =
+        std::max(1, std::min(max_threads.value(), omp_get_max_threads()));
+  else
+    max_threads = omp_get_max_threads();
+
+  if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
+    printf("max_threads: %d\n", max_threads.value());
+
+    // For now, use the default chunk size, total iterations / max_threads.
+#pragma omp parallel for schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < N; i++) {
 
     float *dout_r = dout + i * D;
@@ -69,10 +95,13 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
       float norm = (inp_r[j] - mean_r) * rstd_r;
       float dnorm_j = weight[j] * dout_r[j];
 
-      // gradient contribution to bias
-      dbias[j] += dout_r[j];
-      // gradient contribution to weight
-      dweight[j] += norm * dout_r[j];
+#pragma omp critical
+      {
+        // gradient contribution to bias
+        dbias[j] += dout_r[j];
+        // gradient contribution to weight
+        dweight[j] += norm * dout_r[j];
+      }
 
       // gradient contribution to input
       float dval = 0.0f;
