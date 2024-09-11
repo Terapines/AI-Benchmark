@@ -1,6 +1,6 @@
 #include "support/support.h"
-#include <sstream>
 #include <cassert>
+#include <sstream>
 
 unsigned int next_power_of_2(unsigned int n) {
   if (n == 0) {
@@ -46,6 +46,23 @@ std::optional<int64_t> getIntEnv(const std::string &env) {
     assert(false && "invalid integer");
   return result;
 }
+
+std::optional<std::string> getStringEnv(const std::string &env){
+  const char *cstr = std::getenv(env.c_str());
+  if (!cstr)
+    return std::nullopt;
+  return std::string(cstr);
+}
+
+std::string getDB(const std::string& Shape){
+  std::string DB;
+  if (auto V = getStringEnv("DB_FILE"))
+    DB = V.value();
+  assert(DB.size());
+  DB += "_" + Shape + ".bin";
+  return DB;
+}
+
 
 std::unique_ptr<uint32_t[][3]> get_all_grids(uint32_t gridX, uint32_t gridY,
                                              uint32_t gridZ) {

@@ -231,6 +231,8 @@ class LayerNorm(torch.autograd.Function):
         # Less than 64KB per feature: enqueue fused kernel
         MAX_FUSED_SIZE = 65536 // x.element_size()
         BLOCK_SIZE = min(MAX_FUSED_SIZE, triton.next_power_of_2(N))
+
+        print("LayerNorm forward BLOCK_SIZE",BLOCK_SIZE)
         if N > BLOCK_SIZE:
             raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
         # heuristics for number of warps

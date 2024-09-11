@@ -108,6 +108,8 @@ def softmax(x, y=None):
     # increasing the number of warps (`num_warps`) over which each row is distributed.
     # You will see in the next tutorial how to auto-tune this value in a more natural
     # way so you don't have to come up with manual heuristics yourself.
+    print("softmax_kernel BLOCK_SIZE",BLOCK_SIZE)
+
     num_warps = 4
     if BLOCK_SIZE >= 2048:
         num_warps = 8

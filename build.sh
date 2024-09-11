@@ -21,14 +21,29 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 
 
 ### FIXME: Choose which kernels should be compiled
-C_KERNELS=`ls ${SRC_DIR}/c/*.cpp`
-# C_KERNELS=${SRC_DIR}/c/correlation.cpp
+# C_KERNELS=`ls ${SRC_DIR}/c/*.cpp`
+C_KERNELS=(
+  ${SRC_DIR}/c/correlation.cpp
+  ${SRC_DIR}/c/layernorm.cpp
+  ${SRC_DIR}/c/matmul.cpp
+  ${SRC_DIR}/c/softmax.cpp
+)
 
-TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
-# TRITON_KERNELS=${SRC_DIR}/triton/correlation.py
+# TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
+TRITON_KERNELS=(
+  ${SRC_DIR}/triton/correlation.py
+  ${SRC_DIR}/triton/layernorm.py
+  ${SRC_DIR}/triton/matmul.py
+  ${SRC_DIR}/triton/softmax.py
+)
 
-DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
-# DRIVERS=${SRC_DIR}/main/correlation.cpp
+# DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
+DRIVERS=(
+  ${SRC_DIR}/main/correlation.cpp
+  ${SRC_DIR}/main/layernorm.cpp
+  ${SRC_DIR}/main/matmul.cpp
+  ${SRC_DIR}/main/softmax_kernel.cpp
+)
 
 # Default clean build directory
 DO_CLEAN="--clean"
