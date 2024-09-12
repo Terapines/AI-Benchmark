@@ -64,7 +64,7 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
     printf("max_threads: %d\n", max_threads.value());
 
     // For now, use the default chunk size, total iterations / max_threads.
-#pragma omp parallel for schedule(static) num_threads(max_threads.value())
+#pragma omp parallel for schedule(static) num_threads(max_threads.value())   reduction(+ : dbias[:D])  reduction(+ : dweight[:D])
   for (int i = 0; i < N; i++) {
 
     float *dout_r = dout + i * D;
@@ -95,13 +95,10 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
       float norm = (inp_r[j] - mean_r) * rstd_r;
       float dnorm_j = weight[j] * dout_r[j];
 
-#pragma omp critical
-      {
-        // gradient contribution to bias
-        dbias[j] += dout_r[j];
-        // gradient contribution to weight
-        dweight[j] += norm * dout_r[j];
-      }
+      // gradient contribution to bias
+      dbias[j] += dout_r[j];
+      // gradient contribution to weight
+      dweight[j] += norm * dout_r[j];
 
       // gradient contribution to input
       float dval = 0.0f;
