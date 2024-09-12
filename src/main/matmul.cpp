@@ -25,8 +25,8 @@ int main(int argc, char *argv[]) {
   int N = 321;
   int K = 167;
   int RUN_COUNT = 10;
-  const int BLOCK_SIZE_M = 32;
-  const int BLOCK_SIZE_N = 64;
+  const int BLOCK_SIZE_M = 4;
+  const int BLOCK_SIZE_N = 4;
 
   if (argc >= 2) {
     std::vector<int> Shape = splitStringToInts(argv[1]);

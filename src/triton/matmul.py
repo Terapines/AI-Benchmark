@@ -134,9 +134,9 @@ def matmul(a, b, activation=""):
         b.stride(0), b.stride(1),  #
         c.stride(0), c.stride(1),  #
         ACTIVATION=activation,  #
-        BLOCK_SIZE_M=32,
-        BLOCK_SIZE_N=64,
-        BLOCK_SIZE_K=16,
+        BLOCK_SIZE_M=4,
+        BLOCK_SIZE_N=4,
+        BLOCK_SIZE_K=4,
         GROUP_SIZE_M=8
     )
     return c

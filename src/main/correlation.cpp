@@ -29,6 +29,9 @@ int main(int argc, char *argv[]) {
   int WIDTH = 88;
   int RUN_COUNT = 10;
 
+  const int BLOCK_SIZE_H = 4;
+  const int BLOCK_SIZE_W = 4;
+
   if (Shape.size()) {
     assert(Shape.size() == 5 &&
            "Invalid shape format: "
@@ -98,14 +101,17 @@ int main(int argc, char *argv[]) {
 
   // BLOCK_SHAPE 64x32x8
   // int grid = ceil((float)HEIGHT / 32) * ceil((float)WIDTH / 8);
-  int grid = OUT_CHANNEL;
+  int gridZ = OUT_CHANNEL;
+  int gridY = ceil((float)HEIGHT / 4);
+  int gridX = ceil((float)WIDTH / 4);
 
   auto triton_correlation_begin_time =
       std::chrono::high_resolution_clock::now();
   for (int i = 0; i < RUN_COUNT; i++) {
-    correlation_kernel_omp(grid, 1, 1, &correlation_kernel, src0_arr_global,
-                           src1_arr_global, real_out, OUT_CHANNEL, IN_CHANNEL,
-                           HEIGHT, WIDTH, HEIGHT * WIDTH, OUT_SHIFT);
+    correlation_kernel_omp(gridX, gridY, gridZ, &correlation_kernel,
+                           src0_arr_global, src1_arr_global, real_out,
+                           OUT_CHANNEL, IN_CHANNEL, HEIGHT, WIDTH,
+                           HEIGHT * WIDTH, OUT_SHIFT);
   }
   auto triton_correlation_end_time = std::chrono::high_resolution_clock::now();
 

@@ -25,6 +25,9 @@ int main(int argc, char *argv[]) {
   int D = 0; // embedding vector dimension
   int RUN_COUNT = 10;
 
+  // bwd_dwdb block size
+  const int BLOCK_SIZE_N = 8;
+
   if (argc >= 2) {
     std::vector<int> Shape = splitStringToInts(argv[1]);
     if (Shape.size()) {
@@ -125,19 +128,7 @@ int main(int argc, char *argv[]) {
   // triton kernel
 #ifdef TRITON_KERNEL_ENABLE
 
-  int GROUP_SIZE_M = 64;
-  if (D <= 8192)
-    GROUP_SIZE_M = 96;
-  if (D <= 4096)
-    GROUP_SIZE_M = 128;
-  if (D <= 1024)
-    GROUP_SIZE_M = 256;
-  printf("GROUP_SIZE_M: %d\n", GROUP_SIZE_M);
-
-  float *t_dw_partial = (float *)calloc(GROUP_SIZE_M * D, sizeof(float));
-  float *t_db_partial = (float *)calloc(GROUP_SIZE_M * D, sizeof(float));
-  int *locks = (int *)calloc(2 * GROUP_SIZE_M, sizeof(int));
-  uint32_t gridX = std::ceil((float)D / 128);
+  uint32_t gridX = std::ceil((float)D / BLOCK_SIZE_N);
 
   auto triton_layernorm_begin_time = std::chrono::high_resolution_clock::now();
 
@@ -145,11 +136,9 @@ int main(int argc, char *argv[]) {
     _layer_norm_fwd_fused_omp(N, 1, 1, &_layer_norm_fwd_fused, x, real_out, w,
                               b, real_mean, real_rstd, D, D, 1e-5);
     _layer_norm_bwd_dx_fused_omp(N, 1, 1, _layer_norm_bwd_dx_fused, real_dx,
-                                 dout, t_dw_partial, t_db_partial, x, w,
-                                 real_mean, real_rstd, locks, D, D);
-    _layer_norm_bwd_dwdb_omp(gridX, 1, 1, _layer_norm_bwd_dwdb, t_dw_partial,
-                             t_db_partial, real_dw, real_db,
-                             std::min(GROUP_SIZE_M, N), D);
+                                 dout, x, w, real_mean, real_rstd, D, D);
+    _layer_norm_bwd_dwdb_omp(gridX, 1, 1, _layer_norm_bwd_dwdb, real_dw,
+                             real_db, x, real_mean, real_rstd, dout, N, D);
   }
 
   auto triton_layernorm_end_time = std::chrono::high_resolution_clock::now();
@@ -159,9 +148,6 @@ int main(int argc, char *argv[]) {
   PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL,
                             triton_layernorm_time_interval.count())
 
-  free(t_dw_partial);
-  free(t_db_partial);
-  free(locks);
 #endif
 
   if (file == nullptr) {

@@ -78,22 +78,34 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
     row_idx = tl.program_id(0)
     # The stride represents how much we need to increase the pointer to advance 1 row
     row_start_ptr = input_ptr + row_idx * input_row_stride
-    # The block size is the next power of two greater than n_cols, so we can fit each
-    # row in a single block
-    col_offsets = tl.arange(0, BLOCK_SIZE)
-    input_ptrs = row_start_ptr + col_offsets
-    # Load the row into SRAM, using a mask since BLOCK_SIZE may be > than n_cols
-    row = tl.load(input_ptrs, mask=col_offsets < n_cols, other=-float('inf'))
-    # Subtract maximum for numerical stability
-    row_minus_max = row - tl.max(row, axis=0)
-    # Note that exponentiation in Triton is fast but approximate (i.e., think __expf in CUDA)
-    numerator = tl.exp(row_minus_max)
-    denominator = tl.sum(numerator, axis=0)
-    softmax_output = numerator / denominator
+
+    row_max = -float('inf')
+    for off in range(0, n_cols, BLOCK_SIZE):
+        col_offsets = off + tl.arange(0, BLOCK_SIZE)
+        row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
+        row_max = tl.maximum(row_max, tl.max(row, axis=0))
+
+    denominator = 0.0
+    for off in range(0, n_cols, BLOCK_SIZE):
+        col_offsets = off + tl.arange(0, BLOCK_SIZE)
+        row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
+        # Subtract maximum for numerical stability
+        row_minus_max = row - row_max
+        # Note that exponentiation in Triton is fast but approximate (i.e., think __expf in CUDA)
+        numerator = tl.exp(row_minus_max)
+        denominator += tl.sum(numerator, axis=0)
+
     # Write back output to DRAM
     output_row_start_ptr = output_ptr + row_idx * output_row_stride
-    output_ptrs = output_row_start_ptr + col_offsets
-    tl.store(output_ptrs, softmax_output, mask=col_offsets < n_cols)
+    for off in range(0, n_cols, BLOCK_SIZE):
+        col_offsets = off + tl.arange(0, BLOCK_SIZE)
+        row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
+        row_minus_max = row - row_max
+        # Note that exponentiation in Triton is fast but approximate (i.e., think __expf in CUDA)
+        numerator = tl.exp(row_minus_max)
+
+        softmax_output = numerator/ denominator
+        tl.store(output_row_start_ptr + col_offsets, softmax_output, mask=col_offsets < n_cols)
 
 
 # %%
@@ -103,7 +115,7 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
 def softmax(x, y=None):
     n_rows, n_cols = x.shape
     # The block size is the smallest power of two greater than the number of columns in `x`
-    BLOCK_SIZE = triton.next_power_of_2(n_cols)
+    BLOCK_SIZE = 8
     # Another trick we can use is to ask the compiler to use more threads per row by
     # increasing the number of warps (`num_warps`) over which each row is distributed.
     # You will see in the next tutorial how to auto-tune this value in a more natural

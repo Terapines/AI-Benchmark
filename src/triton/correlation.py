@@ -18,14 +18,16 @@ def correlation_kernel(
 
     # There are multiple 'programs' processing different data. We identify which program
     # we are here:
-    pid = tl.program_id(axis=0)  # We use a 1D launch grid so axis is 0.
+    pid_x = tl.program_id(axis=0)  # We use a 1D launch grid so axis is 0.
+    pid_y = tl.program_id(axis=1)  # We use a 1D launch grid so axis is 1.
+    pid_z = tl.program_id(axis=2)  # We use a 1D launch grid so axis is 2.
 
-    height_idx = tl.arange(0, BLOCK_SIZE_H)
-    width_idx = tl.arange(0, BLOCK_SIZE_W)
+    width_idx =  pid_x * BLOCK_SIZE_W + tl.arange(0, BLOCK_SIZE_W)
+    height_idx = pid_y * BLOCK_SIZE_H + tl.arange(0, BLOCK_SIZE_H)
 
 
     # Create a mask to guard memory operations against out-of-bounds accesses.
-    bound_mask = ((height_idx[:, None] < height) & (width_idx[None, :] < width)) & (width_idx[None, :] >= pid)
+    bound_mask = ((height_idx[:, None] < height) & (width_idx[None, :] < width)) & (width_idx[None, :] >= pid_z)
     # channel_mask = width_idx[None, :] >= pid
 
     offsets = (height_idx[:, None] * width) + width_idx[None, :]
@@ -42,7 +44,7 @@ def correlation_kernel(
         # src0_val = tl.where(channel_mask, src0_val, 0).to(tl.int8)
 
         # src1_val = tl.load(src1_ptr + in_idx2)
-        src1_val = tl.load(src1_ptrs - pid, mask=bound_mask, other=0)
+        src1_val = tl.load(src1_ptrs - pid_z, mask=bound_mask, other=0)
         # src1_val = tl.where(channel_mask, src1_val, 0).to(tl.int8)
 
         sum_data += src0_val * src1_val
@@ -50,7 +52,7 @@ def correlation_kernel(
         src0_ptrs += hw
         src1_ptrs += hw
 
-    out_idx = pid * hw + offsets
+    out_idx = pid_z * hw + offsets
     out_val = (sum_data >> out_shift).to(tl.int8)
     tl.store(out_ptr + out_idx, out_val, mask=bound_mask)
 
@@ -62,7 +64,7 @@ def correlation(src0_arr, src1_arr, out_arr, out_shift):
     in_channel, height, width = src0_arr.shape
 
 
-    grid = (out_channel,)
+    grid = lambda meta: [triton.cdiv(width, meta['BLOCK_SIZE_W']), triton.cdiv(height, meta['BLOCK_SIZE_H']), out_channel]
     block_ic = triton.next_power_of_2(in_channel)
     block_oc = triton.next_power_of_2(out_channel)
 
@@ -70,7 +72,7 @@ def correlation(src0_arr, src1_arr, out_arr, out_shift):
     correlation_kernel[grid](
         src0_arr, src1_arr, out_arr,
         out_channel, in_channel, height, width, height* width, out_shift,
-        BLOCK_SIZE_OC=block_oc, BLOCK_SIZE_H = 128, BLOCK_SIZE_W = 128, BLOCK_SIZE_IC = block_ic
+        BLOCK_SIZE_OC=block_oc, BLOCK_SIZE_H = 4, BLOCK_SIZE_W = 4, BLOCK_SIZE_IC = block_ic
     )
 
 # %%
