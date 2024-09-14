@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
     }
 
     printf("Triton kernel running time: %ld ms\n", time_interval.count());
-    PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, time_interval.count())
+    PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, std::chrono::duration<double>(end - begin).count())
 
     // NOTE: The GFLOPS calculation is not accurate, just for reference
     printf("Triton kernel: %f GFLOPS\n", SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM * RUN_COUNT / (time_interval.count() / 1000.0) / 1e9);
@@ -124,7 +124,7 @@ int main(int argc, char *argv[])
     }
 
     printf("c++ kernel running time: %ld ms\n", time_interval_c.count());
-    PRINT_KERNEL_RUNNING_TIME(C_KERNEL, time_interval_c.count())
+    PRINT_KERNEL_RUNNING_TIME(C_KERNEL, std::chrono::duration<double>(end_c - begin_c).count())
 
     // NOTE: The GFLOPS calculation is not accurate, just for reference
     printf("c++ kernel: %f GFLOPS\n", SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM * RUN_COUNT / (time_interval_c.count() / 1000.0) / 1e9);
