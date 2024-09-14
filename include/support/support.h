@@ -4,6 +4,8 @@
 #include <optional>
 #include <string>
 #include <vector>
+#include <optional>
+#include <algorithm>
 #include <iostream>
 
 unsigned int next_power_of_2(unsigned int n);
@@ -14,8 +16,9 @@ bool check_tensor(T *a, T *b, int n, const char *label) {
 
   int j = 0;
   for (int i = 0; i < n; i++) {
-    // Layer-norm error may larger than 1e-5
-    if (fabs(a[i] - b[i]) > 1e-4) {
+
+    if (std::abs(a[i] - b[i]) > 1e-4) {
+      // printf("Mismatch at %d: %f != %f\n", i, a[i], b[i]);
       ok = false;
       if (j++ < 32) {
         std::cout << i << " : " << a[i] << " vs " << b[i] << std::endl;

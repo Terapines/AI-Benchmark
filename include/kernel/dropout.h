@@ -1,0 +1,1 @@
+void dropout(float *input, float *output, int N, float ratio, int seed);
