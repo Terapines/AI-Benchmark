@@ -118,13 +118,13 @@ int main(int argc, char *argv[])
     }
 
     // check ratio
-    count = 0;
+    int count_c = 0;
     for (int i = 0; i < N; i++)
     {
         if (real_out[i] == 0)
-            count++;
+            count_c++;
     }
-    printf("C++ Dropout ratio: %.3f\n", (float)count / N);
+    printf("C++ Dropout ratio: %.3f\n", (float)count_c / N);
 
     printf("c++ kernel running time: %ld ms\n", time_interval_c.count());
 
