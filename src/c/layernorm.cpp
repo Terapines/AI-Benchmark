@@ -2,6 +2,7 @@
 #include "support/omp.h"
 #include "support/support.h"
 #include <math.h>
+#include <cstring>
 
 void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
                        float *weight, float *bias, const int N, const int D) {
@@ -63,7 +64,11 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-    // For now, use the default chunk size, total iterations / max_threads.
+  memset(dinp, 0, N * D * sizeof(float));
+  memset(dweight, 0, D * sizeof(float));
+  memset(dbias, 0, D * sizeof(float));
+
+  // For now, use the default chunk size, total iterations / max_threads.
 #pragma omp parallel for schedule(static) num_threads(max_threads.value())   reduction(+ : dbias[:D])  reduction(+ : dweight[:D])
   for (int i = 0; i < N; i++) {
 

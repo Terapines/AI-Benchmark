@@ -11,6 +11,7 @@ ABI=lp64d
 GCC="riscv64-unknown-linux-gnu-g++ -march=${ARCH} -mabi=${ABI} -O3"
 ZCC="z++ -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3"
 AR="llvm-ar"
+# OBJDUMP="llvm-objdump"
 
 # Python virtual environment for triton kernel compilation
 PYC="python"
@@ -103,6 +104,7 @@ build_triton_kernel_lib() {
 
     echo ${kernel}
     # compile triton kernel: .py --> .llir + launcher.cpp
+    # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
     KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
 
     # build triton kernel: .llir --> .o
@@ -188,6 +190,8 @@ build_driver(){
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
     ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+
+    # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${name}.elf &> ${KERNEL_BIN_DIR}/${name}.elf.s
 
     # Data shape config
     cp ${SRC_DIR}/main/${name}.cfg  ${KERNEL_BIN_DIR}

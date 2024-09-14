@@ -28,7 +28,7 @@ echo "Report performace to ${REPORT_FILE}"
 STAT_KEYWORD=(C Triton)
 
 COMPILER=(gcc zcc triton)
-THREADS=(1 2 4 8)
+THREADS=(1 4 8)
 
 TRITON_KERNELS=`ls ${BENCHMARK}/triton/`
 
@@ -44,8 +44,8 @@ for kernel_name in ${TRITON_KERNELS}; do
   echo -e "##### ${kernel_name} kernel performance #####" >> ${REPORT_FILE}
 
   echo -ne "shape (${SHAPE_DESC})" >> ${REPORT_FILE}
-  for compiler in ${COMPILER[@]}; do
-    for thread in ${THREADS[@]}; do
+  for thread in ${THREADS[@]}; do
+    for compiler in ${COMPILER[@]}; do
       echo -ne "\t${compiler}_T${thread}" >> ${REPORT_FILE}
     done
   done
@@ -55,24 +55,25 @@ for kernel_name in ${TRITON_KERNELS}; do
   for shape in ${SHAPE[@]}; do
     echo -ne "${shape}" >> ${REPORT_FILE}
 
-    for compiler in ${COMPILER[@]}; do
-      ### FIXME: Check whether is a kernel directory
-      kernel_dir=${BENCHMARK}/${compiler}/${kernel_name}
-      if [ ! -d "${kernel_dir}" ];then
-          continue
-      fi
-      echo "${kernel_dir}"
+    for thread in ${THREADS[@]}; do
+      for compiler in ${COMPILER[@]}; do
+        ### FIXME: Check whether is a kernel directory
+        kernel_dir=${BENCHMARK}/${compiler}/${kernel_name}
+        if [ ! -d "${kernel_dir}" ];then
+            continue
+        fi
+        echo "${kernel_dir}"
 
-      #=================================================#
-      # NOTE: depend on the format of perf.log
-      # extract the statistics
+        #=================================================#
+        # NOTE: depend on the format of perf.log
+        # extract the statistics
 
-      # percentage=1.0
-      for thread in ${THREADS[@]}; do
-        second=$(cat ${kernel_dir}/${kernel_name}_T${thread}_S${shape}.log | sed -n "s/^.* Kernel Time: \([0-9]\+\(\.[0-9]\+\)*\).*/\1/p")
-        # percentage=$(echo "scale=2; ${second} / ${percentage}" | bc)
+        # percentage=1.0
 
-        echo -ne "\t${second}" >> ${REPORT_FILE}
+          second=$(cat ${kernel_dir}/${kernel_name}_T${thread}_S${shape}.log | sed -n "s/^.* Kernel Time: \([0-9]\+\(\.[0-9]\+\)*\).*/\1/p")
+          # percentage=$(echo "scale=2; ${second} / ${percentage}" | bc)
+
+          echo -ne "\t${second}" >> ${REPORT_FILE}
       done
       #=================================================#
 
