@@ -83,7 +83,7 @@ int main(int argc, char *argv[])
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
     {
-        rope_kernel_fw_omp(SEQ_LEN, HEAD_NUM, 1, &rope_kernel_fw, t, BATCH_NUM * HEAD_NUM * HEAD_DIM, HEAD_NUM * HEAD_DIM, real_out, freq_cos, freq_sin, HEAD_DIM, HEAD_DIM, SEQ_LEN, HEAD_DIM);
+        rope_kernel_fw_omp(SEQ_LEN, HEAD_NUM, BATCH_NUM, &rope_kernel_fw, t, BATCH_NUM * HEAD_NUM * HEAD_DIM, HEAD_NUM * HEAD_DIM, real_out, freq_cos, freq_sin, HEAD_DIM, HEAD_DIM, SEQ_LEN, HEAD_DIM);
     }
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);

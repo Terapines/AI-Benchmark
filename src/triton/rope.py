@@ -15,27 +15,28 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
                    sin_stride,
                    seq_len, 
                    head_dim,
-                   BLOCK_SIZE: tl.constexpr, 
-                   BATCH_NUM: tl.constexpr):
+                   BLOCK_SIZE: tl.constexpr):
     
     pid_seq = tl.program_id(axis=0)
     pid_head = tl.program_id(axis=1)
+    pid_batch = tl.program_id(axis=2)
 
-    head_dim_offset = tl.arange(0, BLOCK_SIZE)  # [0:head_dim/2]
     head_dim_mid = head_dim // 2
 
-    mask = head_dim_offset < head_dim_mid
+    for off in range(0, head_dim_mid, BLOCK_SIZE):
+        head_dim_offset = off + tl.arange(0, BLOCK_SIZE)  # [0:head_dim/2]
 
-    cos_offset = (pid_seq % seq_len) * cos_stride + head_dim_offset
-    sin_offset = (pid_seq % seq_len) * sin_stride + head_dim_offset
+        mask = head_dim_offset < head_dim_mid
 
-    cos = tl.load(cos_ptr + cos_offset, mask=mask, other=0.0)
-    sin = tl.load(sin_ptr + sin_offset, mask=mask, other=0.0)
+        cos_offset = (pid_seq % seq_len) * cos_stride + head_dim_offset
+        sin_offset = (pid_seq % seq_len) * sin_stride + head_dim_offset
 
-    for batch_idx in tl.static_range(0, BATCH_NUM):
-        x1_offset = pid_seq * in_seq_len_stride + batch_idx * \
+        cos = tl.load(cos_ptr + cos_offset, mask=mask, other=0.0)
+        sin = tl.load(sin_ptr + sin_offset, mask=mask, other=0.0)
+
+        x1_offset = pid_seq * in_seq_len_stride + pid_batch * \
             in_batch_stride + pid_head * head_dim + head_dim_offset
-        x2_offset = pid_seq * in_seq_len_stride + batch_idx * in_batch_stride + \
+        x2_offset = pid_seq * in_seq_len_stride + pid_batch * in_batch_stride + \
             pid_head * head_dim + head_dim_mid + head_dim_offset
 
         x1 = tl.load(input_ptr + x1_offset, mask=mask, other=0.0)
@@ -46,6 +47,7 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
 
         tl.store(output_ptr + x1_offset, y1, mask=mask)
         tl.store(output_ptr + x2_offset, y2, mask=mask)
+
     return
 
 
@@ -60,27 +62,28 @@ def rope_kernel_bw(input_ptr,
                    sin_stride,
                    seq_len, 
                    head_dim,
-                   BLOCK_SIZE: tl.constexpr, 
-                   BATCH_NUM: tl.constexpr):
+                   BLOCK_SIZE: tl.constexpr):
     
     pid_seq = tl.program_id(axis=0)
     pid_head = tl.program_id(axis=1)
+    pid_batch = tl.program_id(axis=2)
 
-    head_dim_offset = tl.arange(0, BLOCK_SIZE)  # [0:head_dim/2]
     head_dim_mid = head_dim // 2
 
-    mask = head_dim_offset < head_dim_mid
+    for off in range(0, head_dim_mid, BLOCK_SIZE):
+        head_dim_offset = off + tl.arange(0, BLOCK_SIZE)  # [0:head_dim/2]
 
-    cos_offset = (pid_seq % seq_len) * cos_stride + head_dim_offset
-    sin_offset = (pid_seq % seq_len) * sin_stride + head_dim_offset
+        mask = head_dim_offset < head_dim_mid
 
-    cos = tl.load(cos_ptr + cos_offset, mask=mask, other=0.0)
-    sin = tl.load(sin_ptr + sin_offset, mask=mask, other=0.0)
+        cos_offset = (pid_seq % seq_len) * cos_stride + head_dim_offset
+        sin_offset = (pid_seq % seq_len) * sin_stride + head_dim_offset
 
-    for batch_idx in tl.static_range(0, BATCH_NUM):
-        x1_offset = pid_seq * in_seq_len_stride + batch_idx * \
+        cos = tl.load(cos_ptr + cos_offset, mask=mask, other=0.0)
+        sin = tl.load(sin_ptr + sin_offset, mask=mask, other=0.0)
+
+        x1_offset = pid_seq * in_seq_len_stride + pid_batch * \
             in_batch_stride + pid_head * head_dim + head_dim_offset
-        x2_offset = pid_seq * in_seq_len_stride + batch_idx * in_batch_stride + \
+        x2_offset = pid_seq * in_seq_len_stride + pid_batch * in_batch_stride + \
             pid_head * head_dim + head_dim_mid + head_dim_offset
 
         x1 = tl.load(input_ptr + x1_offset, mask=mask, other=0.0)
@@ -91,6 +94,7 @@ def rope_kernel_bw(input_ptr,
 
         tl.store(output_ptr + x1_offset, y1, mask=mask)
         tl.store(output_ptr + x2_offset, y2, mask=mask)
+    
     return
 
 
@@ -111,9 +115,9 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
         seq_len, batch_num, head_num, head_dim = t.shape
         output = torch.empty_like(t)
 
-        BLOCK_SIZE = triton.next_power_of_2(head_dim // 2)
+        BLOCK_SIZE = 16
 
-        grid = (seq_len, head_num)
+        grid = (seq_len, head_num, batch_num)
 
         freqs = freqs[:seq_len]
         cos = torch.cos(freqs).to(t.dtype)
@@ -129,8 +133,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
                              sin.stride(0),
                              seq_len,
                              head_dim,
-                             BLOCK_SIZE,
-                             batch_num)
+                             BLOCK_SIZE)
 
         ctx.cos = cos
         ctx.sin = sin
@@ -154,7 +157,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
         seq_len, batch_num, head_num, head_dim = grad_output.shape
         grad_input = torch.empty_like(grad_output)
 
-        grid = (seq_len, head_num)
+        grid = (seq_len, head_num, batch_num)
 
         rope_kernel_bw[grid](grad_output.clone(),
                              grad_input.stride(0),
@@ -166,8 +169,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
                              ctx.sin.stride(0),
                              seq_len,
                              head_dim,
-                             ctx.BLOCK_SIZE,
-                             batch_num)
+                             ctx.BLOCK_SIZE)
 
         if ctx.tensor_format == "bshd":
             return grad_input.transpose(0, 1), None, None, None, None
