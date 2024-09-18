@@ -34,9 +34,30 @@ import torch
 import triton
 import triton.language as tl
 
+import os
+
 USE_GPU = False
 triton.runtime.driver.set_active_to_cpu()
 
+
+def get_layer_norm_fwd_fused_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE': 4}),
+        triton.Config({'BLOCK_SIZE': 8}),
+        # triton.Config({'BLOCK_SIZE': 16}),
+        # triton.Config({'BLOCK_SIZE': 32}),
+        # triton.Config({'BLOCK_SIZE': 64})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_fwd_fused"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
+
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_layer_norm_fwd_fused_autotune_config(),
+    key=[],
+)
 @triton.jit
 def _layer_norm_fwd_fused(
     X,  # pointer to the input
@@ -120,7 +141,24 @@ def _layer_norm_fwd_fused(
 # In Stage 2, the buffers are further reduced to compute the final :math:`\nabla_{w}` and :math:`\nabla_{b}`.
 # In the following implementation, Stage 1 is implemented by the function :code:`_layer_norm_bwd_dx_fused` and Stage 2 is implemented by the function :code:`_layer_norm_bwd_dwdb`.
 
+def get_layer_norm_bwd_dx_fused_autotune_config():
+    configs = [
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
+        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dx_fused"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
 
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_layer_norm_bwd_dx_fused_autotune_config(),
+    key=[],
+)
 @triton.jit
 def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
                              DY,  # pointer to the output gradient
@@ -175,7 +213,24 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
       # Write dx
       tl.store(DX + cols, dx, mask=mask)
 
+def get_layer_norm_bwd_dwdb_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dwdb"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
 
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_layer_norm_bwd_dwdb_autotune_config(),
+    key=[],
+)
 @triton.jit
 def _layer_norm_bwd_dwdb(
                          DW,  # pointer to the weights gradient
@@ -247,8 +302,8 @@ class LayerNorm(torch.autograd.Function):
         # enqueue kernel
         _layer_norm_fwd_fused[(M, )](  #
             x_arg, y, weight, bias, mean, rstd,  #
-            x_arg.stride(0), N, eps,  #
-            BLOCK_SIZE=BLOCK_SIZE, num_warps=num_warps, num_ctas=1)
+            x_arg.stride(0), N, eps
+        )
         ctx.save_for_backward(x, weight, bias, mean, rstd)
         ctx.BLOCK_SIZE = BLOCK_SIZE
         ctx.num_warps = num_warps
@@ -275,16 +330,13 @@ class LayerNorm(torch.autograd.Function):
         _layer_norm_bwd_dx_fused[(M, )](  #
             dx, dy, x, w, m, v,  #
             x_arg.stride(0), N,  #
-            BLOCK_SIZE_N=ctx.BLOCK_SIZE,  #
-            GROUP_SIZE_M=GROUP_SIZE_M,  #
-            num_warps=ctx.num_warps)
+        )
 
         grid = lambda meta: [triton.cdiv(N, meta['BLOCK_SIZE_N'])]
         # accumulate partial sums in separate kernel
         _layer_norm_bwd_dwdb[grid](
             dw, db, x, m, v, dy, M, N,  #
-            BLOCK_SIZE_M=4,  #
-            BLOCK_SIZE_N=8, num_ctas=1)
+        )
         return dx, None, dw, db, None
 
 

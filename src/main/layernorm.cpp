@@ -25,9 +25,6 @@ int main(int argc, char *argv[]) {
   int D = 0; // embedding vector dimension
   int RUN_COUNT = 10;
 
-  // bwd_dwdb block size
-  const int BLOCK_SIZE_N = 8;
-
   if (argc >= 2) {
     std::vector<int> Shape = splitStringToInts(argv[1]);
     if (Shape.size()) {
@@ -128,7 +125,7 @@ int main(int argc, char *argv[]) {
   // triton kernel
 #ifdef TRITON_KERNEL_ENABLE
 
-  uint32_t gridX = std::ceil((float)D / BLOCK_SIZE_N);
+  uint32_t gridX = std::ceil((float)D / _layer_norm_bwd_dwdb_BLOCK_SIZE_N);
 
   auto triton_layernorm_begin_time = std::chrono::high_resolution_clock::now();
 

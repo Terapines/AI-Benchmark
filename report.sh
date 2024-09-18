@@ -46,7 +46,11 @@ for kernel_name in ${TRITON_KERNELS}; do
   echo -ne "shape (${SHAPE_DESC})" >> ${REPORT_FILE}
   for thread in ${THREADS[@]}; do
     for compiler in ${COMPILER[@]}; do
-      echo -ne "\t${compiler}_T${thread}" >> ${REPORT_FILE}
+      for kernel in ${BENCHMARK}/${compiler}/${kernel_name}/${kernel_name}*.elf; do
+        tmp=`basename ${kernel} .elf`
+        block_shape=${tmp#${kernel_name}*}
+        echo -ne "\t${compiler}_T${thread}${block_shape}" >> ${REPORT_FILE}
+      done
     done
   done
   echo "" >> ${REPORT_FILE}
@@ -69,11 +73,15 @@ for kernel_name in ${TRITON_KERNELS}; do
         # extract the statistics
 
         # percentage=1.0
+        for kernel in ${kernel_dir}/${kernel_name}*.elf; do
+          echo ${kernel}
+          tmp=`basename ${kernel} .elf`
 
-          second=$(cat ${kernel_dir}/${kernel_name}_T${thread}_S${shape}.log | sed -n "s/^.* Kernel Time: \([0-9]\+\(\.[0-9]\+\)*\).*/\1/p")
+          second=$(cat ${kernel_dir}/${tmp}_T${thread}_S${shape}.log | sed -n "s/^.* Kernel Time: \([0-9]\+\(\.[0-9]\+\)*\).*/\1/p")
           # percentage=$(echo "scale=2; ${second} / ${percentage}" | bc)
 
           echo -ne "\t${second}" >> ${REPORT_FILE}
+        done
       done
       #=================================================#
 

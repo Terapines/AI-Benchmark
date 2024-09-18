@@ -28,7 +28,12 @@ for compiler in ${COMPILER[@]}; do
 
     for thread in ${THREAD[@]}; do
       for shape in ${SHAPE[@]}; do
-        DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=${thread} ${kernel_dir}/${kernel_name}.elf ${shape} 2> ${kernel_dir}/${kernel_name}_T${thread}_S${shape}.log
+        for kernel in ${kernel_dir}/${kernel_name}*.elf; do
+          echo ${kernel}
+          tmp=`basename ${kernel} .elf`
+          block_shape=${tmp#*_}
+          DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=${thread} ${kernel} ${shape} 2> ${kernel_dir}/${tmp}_T${thread}_S${shape}.log
+        done
       done
     done
 
