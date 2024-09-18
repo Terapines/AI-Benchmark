@@ -28,6 +28,7 @@ import triton.language as tl
 
 USE_GPU = False
 
+import os
 
 @torch.jit.script
 def naive_softmax(x):
@@ -71,7 +72,24 @@ def naive_softmax(x):
 # power-of-two number of elements, so we need to internally "pad" each row and guard the
 # memory operations properly if we want to handle any possible input shapes:
 
+def get_softmax_kernel_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE': 4}),
+        triton.Config({'BLOCK_SIZE': 8}),
+        # triton.Config({'BLOCK_SIZE': 16}),
+        # triton.Config({'BLOCK_SIZE': 32}),
+        # triton.Config({'BLOCK_SIZE': 64})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "softmax_kernel"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
 
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_softmax_kernel_autotune_config(),
+    key=[],
+)
 @triton.jit
 def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n_cols, BLOCK_SIZE: tl.constexpr):
     # The rows of the softmax are independent, so we parallelize across those
@@ -138,8 +156,6 @@ def softmax(x, y=None):
         x.stride(0),
         y.stride(0),
         n_cols,
-        num_warps=num_warps,
-        BLOCK_SIZE=BLOCK_SIZE,
     )
     return y
 

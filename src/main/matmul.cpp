@@ -25,8 +25,6 @@ int main(int argc, char *argv[]) {
   int N = 321;
   int K = 167;
   int RUN_COUNT = 10;
-  const int BLOCK_SIZE_M = 4;
-  const int BLOCK_SIZE_N = 4;
 
   if (argc >= 2) {
     std::vector<int> Shape = splitStringToInts(argv[1]);
@@ -81,9 +79,10 @@ int main(int argc, char *argv[]) {
 #ifdef TRITON_KERNEL_ENABLE
   high_resolution_clock::time_point beginTime = high_resolution_clock::now();
   for (int i = 0; i < RUN_COUNT; i++) {
-    matmul_kernel_omp(
-        ceil(1.0 * M / BLOCK_SIZE_M) * ceil(1.0 * N / BLOCK_SIZE_N), 1, 1,
-        matmul_kernel, arg0, arg1, real_out, M, N, K, K, 1, N, 1, N, 1);
+    matmul_kernel_omp(ceil(1.0 * M / matmul_kernel_BLOCK_SIZE_M) *
+                          ceil(1.0 * N / matmul_kernel_BLOCK_SIZE_N),
+                      1, 1, matmul_kernel, arg0, arg1, real_out, M, N, K, K, 1,
+                      N, 1, N, 1);
   }
   high_resolution_clock::time_point endTime = high_resolution_clock::now();
   milliseconds timeInterval =

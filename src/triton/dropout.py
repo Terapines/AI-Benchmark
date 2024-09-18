@@ -2,6 +2,29 @@ import torch
 import triton
 import triton.language as tl
 
+import os
+
+USE_GPU = False
+triton.runtime.driver.set_active_to_cpu()
+
+def get_dropout_kernel_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE': 4}),
+        triton.Config({'BLOCK_SIZE': 8}),
+        # triton.Config({'BLOCK_SIZE': 8}),
+        # triton.Config({'BLOCK_SIZE': 8}),
+        # triton.Config({'BLOCK_SIZE': 8})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "dropout_kernel"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
+
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_dropout_kernel_autotune_config(),
+    key=[],
+)
 @triton.jit
 def dropout_kernel(
     x_ptr,
@@ -31,7 +54,7 @@ def seeded_dropout(x, p, seed):
     assert x.is_contiguous()
     n_elements = x.numel()
     grid = lambda meta: (triton.cdiv(n_elements, meta['BLOCK_SIZE']), )
-    dropout_kernel[grid](x, output, n_elements, p, seed, BLOCK_SIZE=8)
+    dropout_kernel[grid](x, output, n_elements, p, seed)
     return output
 
 

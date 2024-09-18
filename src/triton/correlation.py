@@ -3,7 +3,29 @@ import torch
 import triton
 import triton.language as tl
 
+import os
 
+USE_GPU = False
+triton.runtime.driver.set_active_to_cpu()
+
+def get_correlation_kernel_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 8}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 4}),
+        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 8}),
+        # triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 8}),
+        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 8})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "correlation_kernel"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
+
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_correlation_kernel_autotune_config(),
+    key=[],
+)
 @triton.jit
 def correlation_kernel(
         # Pointers to matrices
@@ -72,7 +94,7 @@ def correlation(src0_arr, src1_arr, out_arr, out_shift):
     correlation_kernel[grid](
         src0_arr, src1_arr, out_arr,
         out_channel, in_channel, height, width, height* width, out_shift,
-        BLOCK_SIZE_OC=block_oc, BLOCK_SIZE_H = 4, BLOCK_SIZE_W = 4, BLOCK_SIZE_IC = block_ic
+        BLOCK_SIZE_OC=block_oc, BLOCK_SIZE_IC = block_ic
     )
 
 # %%

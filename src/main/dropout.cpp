@@ -36,7 +36,7 @@ int main(int argc, char *argv[])
 
     printf("Data shape %dx%d\n", N, RUN_COUNT);
 
-        
+
     assert(N != 0 && "Invalid shape\n");
 
     float *input = (float *)malloc(N * sizeof(float));
@@ -67,9 +67,12 @@ int main(int argc, char *argv[])
     printf("Start running Triton kernel %d times.\n", RUN_COUNT);
 
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
+
+    int  grid = ceil((float)N / dropout_kernel_BLOCK_SIZE);
+
     for (int i = 0; i < RUN_COUNT; i++)
     {
-        dropout_kernel_omp(N, 1, 1, &dropout_kernel, input, real_out, N, ratio, seed);
+        dropout_kernel_omp(grid, 1, 1, &dropout_kernel, input, real_out, N, ratio, seed);
     }
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -93,7 +96,7 @@ int main(int argc, char *argv[])
 
     printf("Triton kernel running time: %ld ms\n", time_interval.count());
     PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, std::chrono::duration<double>(end - begin).count())
-    
+
     // NOTE: The GFLOPS calculation is not accurate, just for reference
     printf("Triton kernel: %f GFLOPS\n", N * RUN_COUNT / (time_interval.count() / 1000.0) / 1e9);
 #endif
