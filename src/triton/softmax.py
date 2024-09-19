@@ -74,17 +74,19 @@ def naive_softmax(x):
 
 def get_softmax_kernel_autotune_config():
     configs = [
+        triton.Config({'BLOCK_SIZE': 1}),
+        triton.Config({'BLOCK_SIZE': 2}),
         triton.Config({'BLOCK_SIZE': 4}),
         triton.Config({'BLOCK_SIZE': 8}),
-        # triton.Config({'BLOCK_SIZE': 16}),
-        # triton.Config({'BLOCK_SIZE': 32}),
-        # triton.Config({'BLOCK_SIZE': 64})
+        triton.Config({'BLOCK_SIZE': 16}),
+        triton.Config({'BLOCK_SIZE': 32}),
+        triton.Config({'BLOCK_SIZE': 64})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "softmax_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE': 1})]
 
 @triton.autotune(
     configs=get_softmax_kernel_autotune_config(),
@@ -103,6 +105,8 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
         row_max = tl.maximum(row_max, tl.max(row, axis=0))
 
+    # Write back output to DRAM
+    output_row_start_ptr = output_ptr + row_idx * output_row_stride
     denominator = 0.0
     for off in range(0, n_cols, BLOCK_SIZE):
         col_offsets = off + tl.arange(0, BLOCK_SIZE)
@@ -113,16 +117,14 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
         numerator = tl.exp(row_minus_max)
         denominator += tl.sum(numerator, axis=0)
 
-    # Write back output to DRAM
-    output_row_start_ptr = output_ptr + row_idx * output_row_stride
+        tl.store(output_row_start_ptr + col_offsets, numerator, mask=col_offsets < n_cols)
+
+
     for off in range(0, n_cols, BLOCK_SIZE):
         col_offsets = off + tl.arange(0, BLOCK_SIZE)
-        row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
-        row_minus_max = row - row_max
-        # Note that exponentiation in Triton is fast but approximate (i.e., think __expf in CUDA)
-        numerator = tl.exp(row_minus_max)
+        row = tl.load(output_row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
 
-        softmax_output = numerator/ denominator
+        softmax_output = row / denominator
         tl.store(output_row_start_ptr + col_offsets, softmax_output, mask=col_offsets < n_cols)
 
 

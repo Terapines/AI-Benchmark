@@ -44,15 +44,15 @@ def get_layer_norm_fwd_fused_autotune_config():
     configs = [
         triton.Config({'BLOCK_SIZE': 4}),
         triton.Config({'BLOCK_SIZE': 8}),
-        # triton.Config({'BLOCK_SIZE': 16}),
-        # triton.Config({'BLOCK_SIZE': 32}),
-        # triton.Config({'BLOCK_SIZE': 64})
+        triton.Config({'BLOCK_SIZE': 16}),
+        triton.Config({'BLOCK_SIZE': 32}),
+        triton.Config({'BLOCK_SIZE': 64})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_fwd_fused"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE': 16})]
 
 @triton.autotune(
     configs=get_layer_norm_fwd_fused_autotune_config(),
@@ -143,17 +143,30 @@ def _layer_norm_fwd_fused(
 
 def get_layer_norm_bwd_dx_fused_autotune_config():
     configs = [
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
-        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4})
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 32})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dx_fused"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 16})]
 
 @triton.autotune(
     configs=get_layer_norm_bwd_dx_fused_autotune_config(),
@@ -216,10 +229,23 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
 def get_layer_norm_bwd_dwdb_autotune_config():
     configs = [
         triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4})
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
+        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
+        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
+        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 32})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dwdb"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"

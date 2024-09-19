@@ -9,9 +9,16 @@ import os
 USE_GPU = False
 
 def get_matmul_kernel_autotune_config():
-    configs=[
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4, 'BLOCK_SIZE_K': 4, 'GROUP_SIZE_M': 8}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4, 'BLOCK_SIZE_K': 8, 'GROUP_SIZE_M': 8}),
+    configs=[]
+    for BLOCK_SIZE_M in [4, 8, 16, 32, 64]:
+      for BLOCK_SIZE_N in [4, 8, 16, 32, 64]:
+        for BLOCK_SIZE_K in [4, 8, 16, 32, 64]:
+          for GROUP_SIZE_M in [1, 4, 8, 16, 32, 64]:
+            configs.append(triton.Config({'BLOCK_SIZE_M': BLOCK_SIZE_M, 'BLOCK_SIZE_N': BLOCK_SIZE_N, 'BLOCK_SIZE_K': BLOCK_SIZE_K, 'GROUP_SIZE_M': GROUP_SIZE_M}))
+
+    # configs=[
+    #     triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4, 'BLOCK_SIZE_K': 4, 'GROUP_SIZE_M': 8}),
+    #     triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4, 'BLOCK_SIZE_K': 8, 'GROUP_SIZE_M': 8}),
         # triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 256, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
         # triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 128, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
         # triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
@@ -19,12 +26,12 @@ def get_matmul_kernel_autotune_config():
         # triton.Config({'BLOCK_SIZE_M': 128, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
         # triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 32, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
         # triton.Config({'BLOCK_SIZE_M': 32, 'BLOCK_SIZE_N': 64, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 8}),
-    ]
+    # ]
     if(os.getenv("ENABLE_AUTOTUNING") == "matmul_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE_M': 64, 'BLOCK_SIZE_N': 16, 'BLOCK_SIZE_K': 32, 'GROUP_SIZE_M': 64})]
 
 @triton.autotune(
     configs=get_matmul_kernel_autotune_config(),
