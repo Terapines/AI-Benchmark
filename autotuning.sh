@@ -21,7 +21,8 @@ TRITON_PYTHON_VENV=${TRITON_PLUGIN_DIRS}/.venv
 
 KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include/
 
-
+# compile threads
+MAX_MULTITHREADING=8
 
 # Default clean build directory
 DO_CLEAN="--clean"
@@ -92,7 +93,22 @@ build_triton_driver() {
   # Data shape config
   cp ${SRC_DIR}/main/${driver_name}.cfg  ${KERNEL_BIN_DIR}
 
+
+  # multi-thread
+  [ -e /tmp/fd1_hyc ] || mkfifo /tmp/fd1_hyc
+  exec 6<>/tmp/fd1_hyc
+  rm -rf /tmp/fd1_hyc
+
+  for ((i=1;i<=$MAX_MULTITHREADING;i++))
+  do
+      echo >&6
+  done
+
   for tunning_dir in ${KERNEL_AUX_FILE_DIR}_*; do
+    read -u6
+    {
+
+    echo "----------${tunning_dir}-------------"
     block_shape=${tunning_dir#*$1_}
     mkdir -p ${OBJ_DIR}/${name}_$1_${block_shape}
 
@@ -123,7 +139,11 @@ build_triton_driver() {
 
     # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${driver_name}.elf &> ${KERNEL_BIN_DIR}/${driver_name}.elf.s
 
+      echo >&6
+    } &
   done
+  wait
+  exec 6>&-
 }
 
 # Parse command line options
@@ -164,6 +184,7 @@ if [ "x$DO_CLEAN" = "x--clean" ]; then
     rm -rf $BIN_DIR
     rm -rf $LIB_DIR
     rm -rf $OBJ_DIR
+    rm -rf ${BUILD_DIR}/aux/
 fi
 
 create_dir_hierarchy

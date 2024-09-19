@@ -46,7 +46,7 @@ for kernel_name in ${TRITON_KERNELS}; do
   echo -ne "shape (${SHAPE_DESC})" >> ${REPORT_FILE}
   for thread in ${THREADS[@]}; do
     for compiler in ${COMPILER[@]}; do
-      for kernel in ${BENCHMARK}/${compiler}/${kernel_name}/${kernel_name}*.elf; do
+      for kernel in `ls -v ${BENCHMARK}/${compiler}/${kernel_name}/${kernel_name}*.elf`; do
         tmp=`basename ${kernel} .elf`
         block_shape=${tmp#${kernel_name}*}
         echo -ne "\t${compiler}_T${thread}${block_shape}" >> ${REPORT_FILE}
@@ -73,7 +73,7 @@ for kernel_name in ${TRITON_KERNELS}; do
         # extract the statistics
 
         # percentage=1.0
-        for kernel in ${kernel_dir}/${kernel_name}*.elf; do
+        for kernel in `ls -v ${kernel_dir}/${kernel_name}*.elf`; do
           echo ${kernel}
           tmp=`basename ${kernel} .elf`
 
