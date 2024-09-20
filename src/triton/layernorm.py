@@ -155,12 +155,12 @@ def get_layer_norm_bwd_dx_fused_autotune_config():
         triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
         triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
         triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
         triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 32})
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 64})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dx_fused"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
@@ -228,30 +228,30 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
 
 def get_layer_norm_bwd_dwdb_autotune_config():
     configs = [
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
         triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
-        # triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
-        # triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
-        # triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 32})
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 32}),
+        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dwdb"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64})]
 
 @triton.autotune(
     configs=get_layer_norm_bwd_dwdb_autotune_config(),
@@ -275,8 +275,8 @@ def _layer_norm_bwd_dwdb(
     dw = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     db = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
     # Iterate through the rows of DW and DB to sum the partial sums.
+    rows = tl.arange(0, BLOCK_SIZE_M)
     for i in range(0, M, BLOCK_SIZE_M):
-        rows = i + tl.arange(0, BLOCK_SIZE_M)
         mask = (rows[:, None] < M) & (cols[None, :] < N)
         offs = rows[:, None] * N + cols[None, :]
         x = tl.load(X + offs, mask=mask, other=0.)
@@ -287,6 +287,7 @@ def _layer_norm_bwd_dwdb(
         xhat = tl.where(mask, xhat, 0.)
         dw += (dy * xhat)
         db += (dy)
+        rows += BLOCK_SIZE_M
 
     # Write the final sum to the output.
     sum_dw = tl.sum(dw, axis=0)
@@ -319,8 +320,6 @@ class LayerNorm(torch.autograd.Function):
         MAX_FUSED_SIZE = 65536 // x.element_size()
         BLOCK_SIZE = 8
 
-
-        print("LayerNorm forward BLOCK_SIZE",BLOCK_SIZE)
         if N > MAX_FUSED_SIZE:
             raise RuntimeError("This layer norm doesn't support feature dim >= 64KB.")
         # heuristics for number of warps
@@ -343,7 +342,6 @@ class LayerNorm(torch.autograd.Function):
         N = w.shape[0]
 
         GROUP_SIZE_M = 4
-        print("LayerNorm backward GROUP_SIZE_M",GROUP_SIZE_M)
 
         # allocate output
         dw = torch.empty((N, ), dtype=w.dtype, device=w.device)
