@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
         std::vector<int> Shape = splitStringToInts(argv[1]);
         if (Shape.size())
         {
-            assert(Shape.size() == 5 && "Invalid shape format: SEQ_LENxBATCH_NUMxHEAD_NUMxHEAD_DIM\n");
+            assert(Shape.size() == 5 && "Invalid shape format: SEQ_LENxBATCH_NUMxHEAD_NUMxHEAD_DIMxRUN_COUNT\n");
             SEQ_LEN = Shape.at(0);
             BATCH_NUM = Shape.at(1);
             HEAD_NUM = Shape.at(2);
