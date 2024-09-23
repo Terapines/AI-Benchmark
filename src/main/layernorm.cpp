@@ -4,8 +4,7 @@
 
 #ifdef TRITON_KERNEL_ENABLE
 /// TODO: Better way to include all kernel header file
-#include "_layer_norm_bwd_dwdb_launcher.h"
-#include "_layer_norm_bwd_dx_fused_launcher.h"
+#include "_layer_norm_bwd_fused_launcher.h"
 #include "_layer_norm_fwd_fused_launcher.h"
 #endif
 
@@ -111,6 +110,9 @@ int main(int argc, char *argv[]) {
 
   for (int i = 0; i < RUN_COUNT; i++) {
     layernorm_forward(real_out, real_mean, real_rstd, x, w, b, N, D);
+    memset(real_dx, 0, N * D * sizeof(float));
+    memset(real_dw, 0, D * sizeof(float));
+    memset(real_db, 0, D * sizeof(float));
     layernorm_backward(real_dx, real_dw, real_db, dout, x, w, real_mean,
                        real_rstd, N, D);
   }
@@ -125,17 +127,17 @@ int main(int argc, char *argv[]) {
   // triton kernel
 #ifdef TRITON_KERNEL_ENABLE
 
-  uint32_t gridX = std::ceil((float)D / _layer_norm_bwd_dwdb_BLOCK_SIZE_N);
+  int *locks = (int *)calloc(D, sizeof(int));
 
   auto triton_layernorm_begin_time = std::chrono::high_resolution_clock::now();
-
   for (int i = 0; i < RUN_COUNT; i++) {
     _layer_norm_fwd_fused_omp(N, 1, 1, &_layer_norm_fwd_fused, x, real_out, w,
                               b, real_mean, real_rstd, D, D, 1e-5);
-    _layer_norm_bwd_dx_fused_omp(N, 1, 1, _layer_norm_bwd_dx_fused, real_dx,
-                                 dout, x, w, real_mean, real_rstd, D, D);
-    _layer_norm_bwd_dwdb_omp(gridX, 1, 1, _layer_norm_bwd_dwdb, real_dw,
-                             real_db, x, real_mean, real_rstd, dout, N, D);
+    memset(real_dw, 0, D * sizeof(float));
+    memset(real_db, 0, D * sizeof(float));
+    // memset(locks, 0, D * sizeof(float));
+    _layer_norm_bwd_fused_omp(N, 1, 1, _layer_norm_bwd_fused, real_dx, real_dw, real_db,
+                                 dout, x, w, real_mean, real_rstd, locks, D, D);
   }
 
   auto triton_layernorm_end_time = std::chrono::high_resolution_clock::now();
@@ -145,6 +147,7 @@ int main(int argc, char *argv[]) {
   PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL,
                             triton_layernorm_time_interval.count())
 
+  free(locks);
 #endif
 
   if (file == nullptr) {

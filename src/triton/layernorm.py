@@ -141,47 +141,39 @@ def _layer_norm_fwd_fused(
 # In Stage 2, the buffers are further reduced to compute the final :math:`\nabla_{w}` and :math:`\nabla_{b}`.
 # In the following implementation, Stage 1 is implemented by the function :code:`_layer_norm_bwd_dx_fused` and Stage 2 is implemented by the function :code:`_layer_norm_bwd_dwdb`.
 
-def get_layer_norm_bwd_dx_fused_autotune_config():
+def get_layer_norm_bwd_fused_autotune_config():
     configs = [
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'GROUP_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'GROUP_SIZE_M': 4, 'BLOCK_SIZE_N': 64})
+        # triton.Config({'BLOCK_SIZE_N': 1}),
+        triton.Config({'BLOCK_SIZE_N': 2}),
+        triton.Config({'BLOCK_SIZE_N': 4}),
+        triton.Config({'BLOCK_SIZE_N': 8}),
+        triton.Config({'BLOCK_SIZE_N': 16}),
+        triton.Config({'BLOCK_SIZE_N': 32}),
+        triton.Config({'BLOCK_SIZE_N': 64}),
     ]
-    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dx_fused"):
+    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_fused"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [triton.Config({'GROUP_SIZE_M': 1, 'BLOCK_SIZE_N': 16})]
+    return [triton.Config({'BLOCK_SIZE_N': 16})]
 
 @triton.autotune(
-    configs=get_layer_norm_bwd_dx_fused_autotune_config(),
+    configs=get_layer_norm_bwd_fused_autotune_config(),
     key=[],
 )
 @triton.jit
-def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
-                             DY,  # pointer to the output gradient
-                             X,  # pointer to the input
-                             W,  # pointer to the weights
-                             Mean,  # pointer to the mean
-                             Rstd,  # pointer to the 1/std
-                             stride,  # how much to increase the pointer when moving by 1 row
-                             N,  # number of columns in X
-                             GROUP_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):
+def _layer_norm_bwd_fused(DX,  # pointer to the input gradient
+                          DW,  # pointer to the partial sum of weights gradient
+                          DB,  # pointer to the partial sum of biases gradient
+                          DY,  # pointer to the output gradient
+                          X,  # pointer to the input
+                          W,  # pointer to the weights
+                          Mean,  # pointer to the mean
+                          Rstd,  # pointer to the 1/std
+                          Lock,  # pointer to the lock
+                          stride,  # how much to increase the pointer when moving by 1 row
+                          N,  # number of columns in X
+                          BLOCK_SIZE_N: tl.constexpr):
     # Map the program id to the elements of X, DX, and DY it should compute.
     row = tl.program_id(0)
 
@@ -212,6 +204,9 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
     c2 /= N
 
     for off in range(0, N, BLOCK_SIZE_N):
+      # Offset locks and weights/biases gradient pointer for parallel reduction
+      off = tl.multiple_of(off, BLOCK_SIZE_N)
+
       cols = off + tl.arange(0, BLOCK_SIZE_N)
       mask = cols < N
       x = tl.load(X + cols, mask=mask, other=0).to(tl.float32)
@@ -223,77 +218,22 @@ def _layer_norm_bwd_dx_fused(DX,  # pointer to the input gradient
       xhat = tl.where(mask, xhat, 0.)
       wdy = tl.where(mask, wdy, 0.)
       dx = (wdy - (xhat * c1 + c2)) * rstd
+
       # Write dx
       tl.store(DX + cols, dx, mask=mask)
 
-def get_layer_norm_bwd_dwdb_autotune_config():
-    configs = [
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'BLOCK_SIZE_M': 1, 'BLOCK_SIZE_N': 64}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 2}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 4}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 8}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 16}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 32}),
-        triton.Config({'BLOCK_SIZE_M': 4, 'BLOCK_SIZE_N': 64}),
-    ]
-    if(os.getenv("ENABLE_AUTOTUNING") == "_layer_norm_bwd_dwdb"):
-      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
-      return configs
+      partial_dw = (dy * xhat).to(w.dtype)
+      partial_db = (dy).to(w.dtype)
 
-    return [triton.Config({'BLOCK_SIZE_M': 2, 'BLOCK_SIZE_N': 64})]
+      while tl.atomic_cas(Lock + (off / BLOCK_SIZE_N).to(tl.int32), 0, 1) == 1:
+        pass
+      partial_dw += tl.load(DW + cols, mask=mask)
+      partial_db += tl.load(DB + cols , mask=mask)
+      tl.store(DW + cols,  partial_dw, mask=mask)
+      tl.store(DB + cols , partial_db, mask=mask)
 
-@triton.autotune(
-    configs=get_layer_norm_bwd_dwdb_autotune_config(),
-    key=[],
-)
-@triton.jit
-def _layer_norm_bwd_dwdb(
-                         DW,  # pointer to the weights gradient
-                         DB,  # pointer to the biases gradient
-                         X,  # pointer to the input
-                         Mean,  # pointer to the mean
-                         Rstd,  # pointer to the 1/std
-                         DY,  # pointer to the output gradient
-                         M,  # GROUP_SIZE_M
-                         N,  # number of columns
-                         BLOCK_SIZE_M: tl.constexpr, BLOCK_SIZE_N: tl.constexpr):
-    # Map the program id to the elements of DW and DB it should compute.
-    pid = tl.program_id(0)
-
-    cols = pid * BLOCK_SIZE_N + tl.arange(0, BLOCK_SIZE_N)
-    dw = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
-    db = tl.zeros((BLOCK_SIZE_M, BLOCK_SIZE_N), dtype=tl.float32)
-    # Iterate through the rows of DW and DB to sum the partial sums.
-    rows = tl.arange(0, BLOCK_SIZE_M)
-    for i in range(0, M, BLOCK_SIZE_M):
-        mask = (rows[:, None] < M) & (cols[None, :] < N)
-        offs = rows[:, None] * N + cols[None, :]
-        x = tl.load(X + offs, mask=mask, other=0.)
-        dy = tl.load(DY + offs, mask=mask, other=0.)
-        mean = tl.load(Mean + rows, mask=rows < M, other=0.)
-        rstd = tl.load(Rstd + rows, mask=rows < M, other=0.)
-        xhat = (x - mean[:, None]) * rstd[:, None]
-        xhat = tl.where(mask, xhat, 0.)
-        dw += (dy * xhat)
-        db += (dy)
-        rows += BLOCK_SIZE_M
-
-    # Write the final sum to the output.
-    sum_dw = tl.sum(dw, axis=0)
-    sum_db = tl.sum(db, axis=0)
-    tl.store(DW + cols, sum_dw, mask=cols < N)
-    tl.store(DB + cols, sum_db, mask=cols < N)
+      # Release the lock
+      tl.atomic_xchg(Lock + (off / BLOCK_SIZE_N).to(tl.int32), 0)
 
 
 # %%
@@ -347,20 +287,18 @@ class LayerNorm(torch.autograd.Function):
         dw = torch.empty((N, ), dtype=w.dtype, device=w.device)
         db = torch.empty((N, ), dtype=w.dtype, device=w.device)
         dx = torch.empty_like(dy)
+
+        locks = torch.zeros(N, dtype=torch.int32, device=w.device)
+
         # enqueue kernel using forward pass heuristics
         # also compute partial sums for DW and DB
         x_arg = x.reshape(-1, x.shape[-1])
         M, N = x_arg.shape
-        _layer_norm_bwd_dx_fused[(M, )](  #
-            dx, dy, x, w, m, v,  #
+        _layer_norm_bwd_fused[(M, )](  #
+            dx, dw, db, dy, x, w, m, v, locks, #
             x_arg.stride(0), N,  #
         )
 
-        grid = lambda meta: [triton.cdiv(N, meta['BLOCK_SIZE_N'])]
-        # accumulate partial sums in separate kernel
-        _layer_norm_bwd_dwdb[grid](
-            dw, db, x, m, v, dy, M, N,  #
-        )
         return dx, None, dw, db, None
 
 

@@ -202,8 +202,7 @@ TRITON_KERNEL=${SRC_DIR}/triton/layernorm.py
 DRIVER=${SRC_DIR}/main/layernorm.cpp
 
 build_triton_driver _layer_norm_fwd_fused
-build_triton_driver _layer_norm_bwd_dx_fused
-build_triton_driver _layer_norm_bwd_dwdb
+build_triton_driver _layer_norm_bwd_fused
 
 
 TRITON_KERNEL=${SRC_DIR}/triton/correlation.py
