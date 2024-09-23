@@ -94,7 +94,7 @@ int main(int argc, char *argv[])
     }
     printf("Triton Dropout ratio: %.3f\n", (float)count / N);
 
-    printf("Triton kernel running time: %ld ms\n", time_interval.count());
+    printf("Triton kernel running time: %d ms\n", (int)time_interval.count());
     PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, std::chrono::duration<double>(end - begin).count())
 
     // NOTE: The GFLOPS calculation is not accurate, just for reference
@@ -130,7 +130,7 @@ int main(int argc, char *argv[])
     }
     printf("C++ Dropout ratio: %.3f\n", (float)count_c / N);
 
-    printf("c++ kernel running time: %ld ms\n", time_interval_c.count());
+    printf("c++ kernel running time: %d ms\n", (int)time_interval_c.count());
     PRINT_KERNEL_RUNNING_TIME(C_KERNEL, std::chrono::duration<double>(end_c - begin_c).count())
 
     // NOTE: The GFLOPS calculation is not accurate, just for reference

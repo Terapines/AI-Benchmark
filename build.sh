@@ -28,8 +28,10 @@ C_KERNELS=(
   ${SRC_DIR}/c/layernorm.cpp
   ${SRC_DIR}/c/matmul.cpp
   ${SRC_DIR}/c/softmax.cpp
-  # ${SRC_DIR}/c/rope.cpp
-  # ${SRC_DIR}/c/dropout.cpp
+  ${SRC_DIR}/c/rope.cpp
+  ${SRC_DIR}/c/dropout.cpp
+  ${SRC_DIR}/c/resize.cpp
+  ${SRC_DIR}/c/warp.cpp
 )
 
 # TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
@@ -38,8 +40,10 @@ TRITON_KERNELS=(
   ${SRC_DIR}/triton/layernorm.py
   ${SRC_DIR}/triton/matmul.py
   ${SRC_DIR}/triton/softmax.py
-  # ${SRC_DIR}/triton/rope.py
-  # ${SRC_DIR}/triton/dropout.py
+  ${SRC_DIR}/triton/rope.py
+  ${SRC_DIR}/triton/dropout.py
+  ${SRC_DIR}/triton/resize.py
+  ${SRC_DIR}/triton/warp.py
 )
 
 # DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
@@ -48,8 +52,10 @@ DRIVERS=(
   ${SRC_DIR}/main/layernorm.cpp
   ${SRC_DIR}/main/matmul.cpp
   ${SRC_DIR}/main/softmax_kernel.cpp
-  # ${SRC_DIR}/main/rope.cpp
-  # ${SRC_DIR}/main/dropout.cpp
+  ${SRC_DIR}/main/rope.cpp
+  ${SRC_DIR}/main/dropout.cpp
+  ${SRC_DIR}/main/resize.cpp
+  ${SRC_DIR}/main/warp.cpp
 )
 
 # Default clean build directory
@@ -107,6 +113,10 @@ build_triton_kernel_lib() {
     # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
     KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
 
+    # TODO: Update Clang version
+    # For now, we just replace the trunc n[us]w with trunc
+    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${KERNEL_AUX_FILE_DIR}/*.llir
+    
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
       kernel_name=`basename ${kernel_ir} .llir`

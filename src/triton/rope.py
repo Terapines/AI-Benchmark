@@ -2,8 +2,29 @@ import torch
 import triton
 import triton.language as tl
 from typing import Tuple, Union
+import os
 
+USE_GPU = False
+triton.runtime.driver.set_active_to_cpu()
 
+def get_rope_kernel_autotune_config():
+    configs = [
+        triton.Config({'BLOCK_SIZE': 16}),
+        triton.Config({'BLOCK_SIZE': 4}),
+        triton.Config({'BLOCK_SIZE': 2}),
+        triton.Config({'BLOCK_SIZE': 8}),
+        triton.Config({'BLOCK_SIZE': 32})
+    ]
+    if(os.getenv("ENABLE_AUTOTUNING") == "rope_kernel"):
+      assert (len(configs) > 1), "Autotuning config size need be larger than 1"
+      return configs
+
+    return [configs[0]]
+
+@triton.autotune(
+    configs=get_rope_kernel_autotune_config(),
+    key=[],
+)
 @triton.jit
 def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
                    in_seq_len_stride, 
@@ -50,7 +71,10 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
 
     return
 
-
+@triton.autotune(
+    configs=get_rope_kernel_autotune_config(),
+    key=[],
+)
 @triton.jit
 def rope_kernel_bw(input_ptr, 
                    in_seq_len_stride, 
@@ -115,7 +139,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
         seq_len, batch_num, head_num, head_dim = t.shape
         output = torch.empty_like(t)
 
-        BLOCK_SIZE = 16
+        # BLOCK_SIZE = 16
 
         grid = (seq_len, head_num, batch_num)
 
@@ -132,12 +156,11 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
                              cos.stride(0),
                              sin.stride(0),
                              seq_len,
-                             head_dim,
-                             BLOCK_SIZE)
+                             head_dim)
 
         ctx.cos = cos
         ctx.sin = sin
-        ctx.BLOCK_SIZE = BLOCK_SIZE
+        # ctx.BLOCK_SIZE = BLOCK_SIZE
         ctx.tensor_format = tensor_format
 
         if tensor_format == "bshd":
@@ -168,8 +191,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
                              ctx.cos.stride(0),
                              ctx.sin.stride(0),
                              seq_len,
-                             head_dim,
-                             ctx.BLOCK_SIZE)
+                             head_dim)
 
         if ctx.tensor_format == "bshd":
             return grad_input.transpose(0, 1), None, None, None, None
