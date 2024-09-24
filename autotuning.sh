@@ -202,26 +202,25 @@ echo "build triton kernel"
 ### FIXME: Choose which kernels should be compiled
 # TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
 # FIXME: Use config
-# TRITON_KERNEL=${SRC_DIR}/triton/layernorm.py
-# DRIVER=${SRC_DIR}/main/layernorm.cpp
+TRITON_KERNEL=${SRC_DIR}/triton/layernorm.py
+DRIVER=${SRC_DIR}/main/layernorm.cpp
 
-# build_triton_driver _layer_norm_fwd_fused
-# build_triton_driver _layer_norm_bwd_dx_fused
-# build_triton_driver _layer_norm_bwd_dwdb
-
-
-# TRITON_KERNEL=${SRC_DIR}/triton/correlation.py
-# DRIVER=${SRC_DIR}/main/correlation.cpp
-# build_triton_driver correlation_kernel
+build_triton_driver _layer_norm_fwd_fused
+build_triton_driver _layer_norm_bwd_fused
 
 
-# TRITON_KERNEL=${SRC_DIR}/triton/softmax.py
-# DRIVER=${SRC_DIR}/main/softmax_kernel.cpp
-# build_triton_driver softmax_kernel
+TRITON_KERNEL=${SRC_DIR}/triton/correlation.py
+DRIVER=${SRC_DIR}/main/correlation.cpp
+build_triton_driver correlation_kernel
 
-# TRITON_KERNEL=${SRC_DIR}/triton/matmul.py
-# DRIVER=${SRC_DIR}/main/matmul.cpp
-# build_triton_driver matmul_kernel
+
+TRITON_KERNEL=${SRC_DIR}/triton/softmax.py
+DRIVER=${SRC_DIR}/main/softmax_kernel.cpp
+build_triton_driver softmax_kernel
+
+TRITON_KERNEL=${SRC_DIR}/triton/matmul.py
+DRIVER=${SRC_DIR}/main/matmul.cpp
+build_triton_driver matmul_kernel
 
 TRITON_KERNEL=${SRC_DIR}/triton/rope.py
 DRIVER=${SRC_DIR}/main/rope.cpp
