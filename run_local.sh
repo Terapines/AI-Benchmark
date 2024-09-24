@@ -7,7 +7,7 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 
 PYC="python"
 
-ZCC="clang++-19 -g -std=c++17 -fno-lto -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR}"
+ZCC="clang++-19 -g -std=c++17 -fno-lto -fvectorize -fslp-vectorize -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR}"
 AR="llvm-ar-19"
 
 C_KERNELS=(
@@ -16,7 +16,9 @@ C_KERNELS=(
   # ${SRC_DIR}/c/matmul.cpp
   # ${SRC_DIR}/c/softmax.cpp
   # ${SRC_DIR}/c/rope.cpp
-  ${SRC_DIR}/c/dropout.cpp
+  # ${SRC_DIR}/c/dropout.cpp
+  ${SRC_DIR}/c/resize.cpp
+  # ${SRC_DIR}/c/warp.cpp
 )
 
 # TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
@@ -26,7 +28,9 @@ TRITON_KERNELS=(
   # ${SRC_DIR}/triton/matmul.py
   # ${SRC_DIR}/triton/softmax.py
   # ${SRC_DIR}/triton/rope.py
-  ${SRC_DIR}/triton/dropout.py
+  # ${SRC_DIR}/triton/dropout.py
+  ${SRC_DIR}/triton/resize.py
+  # ${SRC_DIR}/triton/warp.py
 )
 
 # DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
@@ -36,7 +40,9 @@ DRIVERS=(
   # ${SRC_DIR}/main/matmul.cpp
   # ${SRC_DIR}/main/softmax_kernel.cpp
   # ${SRC_DIR}/main/rope.cpp
-  ${SRC_DIR}/main/dropout.cpp
+  # ${SRC_DIR}/main/dropout.cpp
+  ${SRC_DIR}/main/resize.cpp
+  # ${SRC_DIR}/main/warp.cpp
 )
 
 # build support library
@@ -105,13 +111,16 @@ build_driver(){
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    ${ZCC} -O3 ${main} -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}.elf
+    ${ZCC} -O3 ${main} -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_c.elf
+    ${ZCC} -O3 ${main} -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_triton.elf
     # Data shape config
     cp ${SRC_DIR}/main/${name}.cfg  ${KERNEL_BIN_DIR}
   done
 }
 
 run(){
+  # remove all .bin files if exist
+  # rm -f ./*.bin
   BENCHMARK=${BUILD_DIR}/bin/
 
   for f_sub in `ls ${BENCHMARK}`; do
@@ -131,7 +140,8 @@ run(){
     echo ${SHAPE[*]}
 
     for shape in ${SHAPE[@]}; do
-      DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}.elf ${shape}
+      DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_c.elf ${shape}
+      DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_triton.elf ${shape}
     done
   done
 }
