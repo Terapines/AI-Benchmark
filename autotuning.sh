@@ -123,7 +123,7 @@ build_triton_driver() {
 
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
-    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${KERNEL_AUX_FILE_DIR}/*.llir
+    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${tunning_dir}/*.llir
 
     # build triton kernel: .llir --> .o
     for kernel_ir in ${tunning_dir}/*.llir; do

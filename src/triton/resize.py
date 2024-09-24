@@ -10,6 +10,7 @@ triton.runtime.driver.set_active_to_cpu()
 
 def get_resize_kernel_autotune_config():
     configs = [
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 4}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 8}),
@@ -21,7 +22,6 @@ def get_resize_kernel_autotune_config():
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 8}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 16}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 32}),
-        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 64}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 4}),
