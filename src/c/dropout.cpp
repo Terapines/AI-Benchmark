@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <ctime>
 #include "kernel/dropout.h"
+#include <random>
 
 
 void dropout(float *input, float *output, int N, float ratio, int seed)
@@ -21,17 +22,19 @@ void dropout(float *input, float *output, int N, float ratio, int seed)
 
     srand(seed);
 
-#pragma omp parallel for simd schedule(static) num_threads(max_threads.value())
-    for (int i = 0; i < N; ++i)
+#pragma omp parallel num_threads(max_threads.value())
     {
-        float random_value = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
-        if (random_value < ratio)
-        {
-            output[i] = 0.0f;
-        }
-        else
-        {
-            output[i] = input[i] / (1.0f - ratio);
+        std::mt19937 rng(seed + omp_get_thread_num());
+        std::uniform_real_distribution<float> dist(0.0f, 1.0f);
+
+#pragma omp for
+        for (int i = 0; i < N; ++i) {
+            float random_value = dist(rng);
+            if (random_value < ratio) {
+                output[i] = 0.0f;
+            } else {
+                output[i] = input[i] / (1.0f - ratio);
+            }
         }
     }
 }
