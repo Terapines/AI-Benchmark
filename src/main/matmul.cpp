@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
 
   std::string DB = getDB(argv[1]);
 
+#ifdef CHECK_ACCURACY
   FILE *file = fopen(DB.c_str(), "rb");
   if (file) {
     printf("File %s open for read\n", DB.c_str());
@@ -58,6 +59,7 @@ int main(int argc, char *argv[]) {
     fread(arg1, sizeof(float), K * N, file);
     fread(ref_out, sizeof(float), M * N, file);
   } else {
+#endif
     // Will be used to obtain a seed for the random number engine
     std::random_device rd;
     std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -73,7 +75,9 @@ int main(int argc, char *argv[]) {
         arg1[i * N + j] = norm_dis(gen);
       }
     }
+#ifdef CHECK_ACCURACY
   }
+#endif
 
   // triton kernel
 #ifdef TRITON_KERNEL_ENABLE
@@ -126,6 +130,7 @@ int main(int argc, char *argv[]) {
   PRINT_KERNEL_RUNNING_TIME(C_KERNEL, c_correlation_time_interval.count())
 #endif
 
+#ifdef CHECK_ACCURACY
   if (file == nullptr) {
     file = fopen(DB.c_str(), "wb");
 
@@ -141,6 +146,7 @@ int main(int argc, char *argv[]) {
   fclose(file);
 
   check_tensor(ref_out, real_out, M * N, "out");
+#endif
 
   free(arg0);
   free(arg1);

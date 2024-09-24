@@ -1,5 +1,7 @@
 #!/bin/bash
 
+MODE="Accuracy"
+
 DIR=`dirname $0`
 
 BENCHMARK=${DIR}/bin/
@@ -24,11 +26,10 @@ for compiler in ${COMPILER[@]}; do
     # shape array
     # NOTE: get from config
     source ${kernel_dir}/${kernel_name}.cfg
-    echo ${SHAPE[*]}
 
     for thread in ${THREAD[@]}; do
       for shape in ${SHAPE[@]}; do
-        for kernel in ${kernel_dir}/${kernel_name}*.elf; do
+        for kernel in `ls -v ${kernel_dir}/${kernel_name}*.elf`; do
           echo ${kernel}
           tmp=`basename ${kernel} .elf`
           block_shape=${tmp#*_}

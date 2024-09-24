@@ -4,6 +4,13 @@ DIR=`dirname $0`
 SRC_DIR=${DIR}/src
 BUILD_DIR=${DIR}/build
 
+# "Benchmark": Various input shape
+# "Accuracy": Specified input shape
+MODE="Accuracy"
+# Update run.sh mode
+sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
+sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
+
 # C compile env
 ARCH=rv64gcv
 ABI=lp64d
@@ -116,7 +123,7 @@ build_triton_kernel_lib() {
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
     sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${KERNEL_AUX_FILE_DIR}/*.llir
-    
+
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
       kernel_name=`basename ${kernel_ir} .llir`
@@ -189,6 +196,11 @@ build_driver(){
   fi
 
   build_support_lib
+
+  # Benchmark mode don't check accurary since io operation is slow
+  if [ "${MODE}" == "Accuracy" ]; then
+    COMPILER+=" -DCHECK_ACCURACY "
+  fi
 
   for main in ${DRIVERS[@]}; do
     name=`basename ${main} .cpp`

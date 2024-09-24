@@ -55,6 +55,7 @@ int main(int argc, char *argv[])
 
     std::string DB = getDB(argv[1]);
 
+#ifdef CHECK_ACCURACY
     FILE *file = fopen(DB.c_str(), "rb");
     if (file)
     {
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
     }
     else
     {
+#endif
         // Will be used to obtain a seed for the random number engine
         std::random_device rd;
         std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -74,7 +76,9 @@ int main(int argc, char *argv[])
         std::generate(t, t + SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM, [&]() { return dis(gen); });
         std::generate(freq_cos, freq_cos + SEQ_LEN * HEAD_DIM, [&]() { return dis(gen); });
         std::generate(freq_sin, freq_sin + SEQ_LEN * HEAD_DIM, [&]() { return dis(gen); });
+#ifdef CHECK_ACCURACY
     }
+#endif
 
 #ifdef TRITON_KERNEL_ENABLE
     // run triton kernel
@@ -130,6 +134,7 @@ int main(int argc, char *argv[])
     printf("c++ kernel: %f GFLOPS\n", SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM * RUN_COUNT / (time_interval_c.count() / 1000.0) / 1e9);
 #endif
 
+#ifdef CHECK_ACCURACY
     if (file == nullptr)
     {
         file = fopen(DB.c_str(), "wb");
@@ -148,6 +153,7 @@ int main(int argc, char *argv[])
 
     // test the correctness of the kernel
     check_tensor(ref_out, real_out, SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM, "out");
+#endif
 
     // free memory
     free(t);

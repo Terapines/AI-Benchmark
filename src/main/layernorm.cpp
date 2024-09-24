@@ -68,6 +68,7 @@ int main(int argc, char *argv[]) {
 
   std::string DB = getDB(argv[1]);
 
+#ifdef CHECK_ACCURACY
   FILE *file = fopen(DB.c_str(), "rb");
   if (file) {
     printf("File %s open for read\n", DB.c_str());
@@ -83,6 +84,7 @@ int main(int argc, char *argv[]) {
     fread(ref_dw, sizeof(float), D, file);
     fread(ref_db, sizeof(float), D, file);
   } else {
+#endif
     // Will be used to obtain a seed for the random number engine
     std::random_device rd;
     std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
@@ -99,7 +101,9 @@ int main(int argc, char *argv[]) {
         dout[i * D + j] = .1 * norm_dis(gen);
       }
     }
+#ifdef CHECK_ACCURACY
   }
+#endif
 
   // now let's calculate everything ourselves
 
@@ -150,6 +154,7 @@ int main(int argc, char *argv[]) {
   free(locks);
 #endif
 
+#ifdef CHECK_ACCURACY
   if (file == nullptr) {
     file = fopen(DB.c_str(), "wb");
 
@@ -183,6 +188,7 @@ int main(int argc, char *argv[]) {
   check_tensor(ref_dx, real_dx, N * D, "dx");
   check_tensor(ref_dw, real_dw, D, "dw");
   check_tensor(ref_db, real_db, D, "db");
+#endif
 
   free(x);
   free(w);

@@ -1,6 +1,9 @@
 # Triton builds
-build/
-build-*/
+aux/
+bin/
+lib/
+obj/
+*.xls
 
 # Environments
 .venv

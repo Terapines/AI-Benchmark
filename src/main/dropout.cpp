@@ -47,6 +47,7 @@ int main(int argc, char *argv[])
 
     std::string DB = getDB(argv[1]);
 
+#ifdef CHECK_ACCURACY
     FILE *file = fopen(DB.c_str(), "rb");
     if (file)
     {
@@ -55,12 +56,15 @@ int main(int argc, char *argv[])
     }
     else
     {
+#endif
         // Will be used to obtain a seed for the random number engine
         std::random_device rd;
         std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
         std::uniform_real_distribution<> dis(-1, 1);
         std::generate(input, input + N, [&]() { return dis(gen); });
+#ifdef CHECK_ACCURACY
     }
+#endif
 
 #ifdef TRITON_KERNEL_ENABLE
     // run triton kernel

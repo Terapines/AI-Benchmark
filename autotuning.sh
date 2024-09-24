@@ -6,6 +6,12 @@ echo ${DIR}
 SRC_DIR=${DIR}/src
 BUILD_DIR=${DIR}/build
 
+# Always check accuracy
+MODE="Accuracy"
+# Update run.sh mode
+sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
+sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
+
 # C compile env
 ARCH=rv64gcv
 ABI=lp64d
@@ -139,7 +145,8 @@ build_triton_driver() {
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    ${COMPILER} ${DRIVER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel_$1_${block_shape} -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf
+    # Always check accurary
+    ${COMPILER} ${DRIVER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel_$1_${block_shape} -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -DCHECK_ACCURACY -fPIC -o ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf
 
     # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${driver_name}.elf &> ${KERNEL_BIN_DIR}/${driver_name}.elf.s
 

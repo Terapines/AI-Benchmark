@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
 
     std::string DB = getDB(argv[1]);
 
+#ifdef CHECK_ACCURACY
     FILE *file = fopen(DB.c_str(), "rb");
     if (file)
     {
@@ -58,12 +59,15 @@ int main(int argc, char *argv[])
     }
     else
     {
+#endif
         // Will be used to obtain a seed for the random number engine
         std::random_device rd;
         std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
         std::uniform_real_distribution<> dis(0, 255);
         std::generate(input, input + H * W * C, [&]() { return dis(gen); });
+#ifdef CHECK_ACCURACY
     }
+#endif
 
     printf("Input:\n");
     for (int i = 0; i < std::min(16, H * W * C); i++)
@@ -130,6 +134,7 @@ int main(int argc, char *argv[])
     printf("c++ kernel: %f GFLOPS\n", H * W * C * RUN_COUNT / (time_interval_c.count() / 1000.0) / 1e9);
     #endif
 
+#ifdef CHECK_ACCURACY
     // check correctness of backward pass
     if (file == nullptr) {
         file = fopen(DB.c_str(), "wb");
@@ -141,8 +146,9 @@ int main(int argc, char *argv[])
         fwrite(ref_out, sizeof(int8_t), H * 2 * W * 2 * C * 2, file);
     }
     fclose(file);
-    
+
     check_tensor(ref_out, real_out, H * 2 * W * 2 * C * 2, "out");
+#endif
 
     free(input);
     free(ref_out);
