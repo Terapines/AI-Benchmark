@@ -9,18 +9,18 @@ triton.runtime.driver.set_active_to_cpu()
 
 def get_rope_kernel_autotune_config():
     configs = [
-        triton.Config({'BLOCK_SIZE': 16}),
         triton.Config({'BLOCK_SIZE': 1}),
         triton.Config({'BLOCK_SIZE': 2}),
         triton.Config({'BLOCK_SIZE': 4}),
         triton.Config({'BLOCK_SIZE': 8}),
+        triton.Config({'BLOCK_SIZE': 16}),
         triton.Config({'BLOCK_SIZE': 32})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "rope_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE': 1})]
 
 @triton.autotune(
     configs=get_rope_kernel_autotune_config(),
@@ -28,20 +28,21 @@ def get_rope_kernel_autotune_config():
 )
 @triton.jit
 def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
-                   in_seq_len_stride, 
+                   in_seq_len_stride,
                    in_batch_stride,
-                   output_ptr, 
+                   output_ptr,
                    cos_ptr, # [seq_len, head_dim]
                    sin_ptr, # [seq_len, head_dim]
-                   cos_stride, 
+                   cos_stride,
                    sin_stride,
-                   seq_len, 
+                   seq_len,
                    head_dim,
                    BLOCK_SIZE: tl.constexpr):
-    
-    pid_seq = tl.program_id(axis=0)
-    pid_head = tl.program_id(axis=1)
-    pid_batch = tl.program_id(axis=2)
+
+    pid_head = tl.program_id(axis=0)
+    pid_batch = tl.program_id(axis=1)
+    pid_seq = tl.program_id(axis=2)
+
 
     head_dim_mid = head_dim // 2
 
@@ -50,8 +51,8 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
 
         mask = head_dim_offset < head_dim_mid
 
-        cos_offset = (pid_seq % seq_len) * cos_stride + head_dim_offset
-        sin_offset = (pid_seq % seq_len) * sin_stride + head_dim_offset
+        cos_offset = pid_seq * cos_stride + head_dim_offset
+        sin_offset = pid_seq * sin_stride + head_dim_offset
 
         cos = tl.load(cos_ptr + cos_offset, mask=mask, other=0.0)
         sin = tl.load(sin_ptr + sin_offset, mask=mask, other=0.0)
@@ -77,18 +78,18 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
     key=[],
 )
 @triton.jit
-def rope_kernel_bw(input_ptr, 
-                   in_seq_len_stride, 
+def rope_kernel_bw(input_ptr,
+                   in_seq_len_stride,
                    in_batch_stride,
-                   output_ptr, 
-                   cos_ptr, 
-                   sin_ptr, 
-                   cos_stride, 
+                   output_ptr,
+                   cos_ptr,
+                   sin_ptr,
+                   cos_stride,
                    sin_stride,
-                   seq_len, 
+                   seq_len,
                    head_dim,
                    BLOCK_SIZE: tl.constexpr):
-    
+
     pid_seq = tl.program_id(axis=0)
     pid_head = tl.program_id(axis=1)
     pid_batch = tl.program_id(axis=2)
@@ -119,7 +120,7 @@ def rope_kernel_bw(input_ptr,
 
         tl.store(output_ptr + x1_offset, y1, mask=mask)
         tl.store(output_ptr + x2_offset, y2, mask=mask)
-    
+
     return
 
 
@@ -142,7 +143,7 @@ class FusedRoPEFucnTriton(torch.autograd.Function):
 
         # BLOCK_SIZE = 16
 
-        grid = (seq_len, head_num, batch_num)
+        grid = (head_num, batch_num, seq_len)
 
         freqs = freqs[:seq_len]
         cos = torch.cos(freqs).to(t.dtype)
@@ -220,17 +221,17 @@ dtype = torch.float32 if device == 'cpu' else torch.float16
 def rope_pytorch(t, freqs):
     """
     Applies Rotary Positional Embeddings (RoPE) to the tensor `t` with given `freqs`.
-    
+
     Args:
         t (torch.Tensor): The input tensor with shape [seq_len, batch_num, head_num, head_dim].
         freqs (torch.Tensor): The precomputed frequencies for RoPE with shape [seq_len, head_dim].
-    
+
     Returns:
         torch.Tensor: The output tensor with RoPE applied.
     """
     seq_len, batch_num, head_num, head_dim = t.shape
     output = torch.empty_like(t)
-    
+
     half_dim = head_dim // 2
 
     freqs = freqs[:seq_len]
