@@ -22,9 +22,7 @@ void softmax(float *input, float *out, const int R, const int C) {
     float *input_r = input + i * C;
     float max_val = input_r[0];
     for (int j = 1; j < C; j++) {
-      if (input_r[j] > max_val) {
-        max_val = input_r[j];
-      }
+      max_val = std::fmax(input_r[j], max_val);
     }
 
     // 减去最大值并计算指数

@@ -108,16 +108,16 @@ def softmax_kernel(output_ptr, input_ptr, input_row_stride, output_row_stride, n
     # Write back output to DRAM
     output_row_start_ptr = output_ptr + row_idx * output_row_stride
     denominator = 0.0
-    for off in range(0, n_cols, BLOCK_SIZE):
-        col_offsets = off + tl.arange(0, BLOCK_SIZE)
-        row = tl.load(row_start_ptr + col_offsets, mask=col_offsets < n_cols, other=-float('inf'))
+    for off in range(0, n_cols):
+        row = tl.load(row_start_ptr + off)
         # Subtract maximum for numerical stability
         row_minus_max = row - row_max
         # Note that exponentiation in Triton is fast but approximate (i.e., think __expf in CUDA)
         numerator = tl.exp(row_minus_max)
-        denominator += tl.sum(numerator, axis=0)
+        denominator += numerator
 
-        tl.store(output_row_start_ptr + col_offsets, numerator, mask=col_offsets < n_cols)
+        tl.store(output_row_start_ptr + off, numerator)
+
 
 
     for off in range(0, n_cols, BLOCK_SIZE):
