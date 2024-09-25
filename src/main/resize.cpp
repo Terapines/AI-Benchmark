@@ -81,9 +81,9 @@ int main(int argc, char *argv[])
     // run triton kernel
     printf("Start running Triton kernel %d times.\n", RUN_COUNT);
 
-    int gridX = ceil((float)W * 2 / resize_kernel_BLOCK_SIZE_W);
-    int gridY = ceil((float)H * 2 / resize_kernel_BLOCK_SIZE_H);
-    int gridZ = C;
+    int gridX = H * 2;
+    int gridY = C;
+    int gridZ = 1;
 
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
