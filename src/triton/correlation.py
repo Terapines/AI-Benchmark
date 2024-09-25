@@ -10,24 +10,27 @@ triton.runtime.driver.set_active_to_cpu()
 
 def get_correlation_kernel_autotune_config():
     configs = [
+        triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 1}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 4}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 8}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 16}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 32}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 64}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 2}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 4}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 8}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 16}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 32}),
-        # triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 64}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 2}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 4}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 8}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 16}),
-        # triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 32})
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 1}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 2}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 4}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 8}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 16}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 32}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 1}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 2}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 4}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 8}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 16}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 32}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 64}),
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "correlation_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"

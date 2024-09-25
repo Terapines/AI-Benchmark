@@ -145,7 +145,7 @@ def _layer_norm_fwd_fused(
 
 def get_layer_norm_bwd_fused_autotune_config():
     configs = [
-        # triton.Config({'BLOCK_SIZE_N': 1}),
+        triton.Config({'BLOCK_SIZE_N': 1}),
         triton.Config({'BLOCK_SIZE_N': 2}),
         triton.Config({'BLOCK_SIZE_N': 4}),
         triton.Config({'BLOCK_SIZE_N': 8}),
