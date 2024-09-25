@@ -14,10 +14,6 @@ __attribute__((noinline)) void warp(int8_t *src_arr, int16_t *offset_arr, int8_t
     if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
         printf("max_threads: %d\n", max_threads.value());
 
-    uint16_t dst_height = height * 2;
-    uint16_t dst_width = width * 2;
-
-    size_t hw_fl = 7; // fraction of factor is 7;
 #pragma omp parallel for collapse(2) schedule(static) num_threads(max_threads.value())
     for (size_t c = 0; c < channel; c++)
     {
