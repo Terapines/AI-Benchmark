@@ -10,33 +10,33 @@ triton.runtime.driver.set_active_to_cpu()
 
 def get_resize_kernel_autotune_config():
     configs = [
-        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
+        triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 1}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 4}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 8}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 16}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 32}),
         triton.Config({'BLOCK_SIZE_H': 1, 'BLOCK_SIZE_W': 64}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 1}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 4}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 8}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 16}),
         triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 32}),
-        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 64}),
+        triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 1}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 2}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 4}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 8}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 16}),
         triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 32}),
-        triton.Config({'BLOCK_SIZE_H': 8, 'BLOCK_SIZE_W': 8}),
-        triton.Config({'BLOCK_SIZE_H': 16, 'BLOCK_SIZE_W': 16}),
-        triton.Config({'BLOCK_SIZE_H': 32, 'BLOCK_SIZE_W': 32}),
+        triton.Config({'BLOCK_SIZE_H': 4, 'BLOCK_SIZE_W': 64})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "resize_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [configs[0]]
+    return [triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64})]
 
 @triton.autotune(
     configs=get_resize_kernel_autotune_config(),
@@ -53,20 +53,19 @@ def resize_kernel(
     BLOCK_SIZE_H: tl.constexpr,
     BLOCK_SIZE_W: tl.constexpr,
 ):
-    pid_h = tl.program_id(axis=0)
-    pid_w = tl.program_id(axis=1)
+    pid_w = tl.program_id(axis=0)
+    pid_h = tl.program_id(axis=1)
     pid_c = tl.program_id(axis=2)
 
     dst_height = 2 * height  # 2x upsample
     dst_width = 2 * width
 
     hw_fl = 7
-    
+
     h_idx = pid_h * BLOCK_SIZE_H + tl.arange(0, BLOCK_SIZE_H)[:, None]  # [BLOCK_SIZE_H, 1]
     w_idx = pid_w * BLOCK_SIZE_W + tl.arange(0, BLOCK_SIZE_W)[None, :]  # [1, BLOCK_SIZE_W]
 
-    mask = (h_idx < dst_height) & (w_idx < dst_width) & (pid_c < channel)
-
+    mask = (h_idx < dst_height) & (w_idx < dst_width)
     input_y = h_idx << (hw_fl - 1)
     input_x = w_idx << (hw_fl - 1)
 
@@ -117,7 +116,7 @@ def resize(src_arr, out_arr):
     # BLOCK_W = 32
 
     # Compute grid dimensions
-    grid = lambda meta: (triton.cdiv(height * 2, meta['BLOCK_SIZE_H']), triton.cdiv(width * 2, meta['BLOCK_SIZE_W']), channel)
+    grid = lambda meta: (triton.cdiv(width * 2, meta['BLOCK_SIZE_W']), triton.cdiv(height * 2, meta['BLOCK_SIZE_H']), channel)
 
     # Launch the Triton kernel
     resize_kernel[grid](
