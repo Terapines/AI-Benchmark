@@ -23,7 +23,7 @@ def get_resize_kernel_autotune_config():
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [triton.Config({'BLOCK_SIZE_H': 2, 'BLOCK_SIZE_W': 64})]
+    return [triton.Config({'BLOCK_SIZE_W': 16})]
 
 @triton.autotune(
     configs=get_resize_kernel_autotune_config(),
@@ -59,8 +59,9 @@ def resize_kernel(
     y1 = tl.minimum(y0 + 1, height - 1)
 
     src_offset = pid_c * height * width
-    y0_offset = src_offset + y0 * width
-    y1_offset = src_offset + y1 * width
+    src_ptrs0 = src_ptr + src_offset + y0 * width
+    src_ptrs1 = src_ptr + src_offset + y1 * width
+    out_ptrs =  out_ptr + (pid_c * dst_height * dst_width + h_idx * dst_width)
 
     for off in range(0, width * 2, BLOCK_SIZE_W):
         w_idx = off + tl.arange(0, BLOCK_SIZE_W) # [1, BLOCK_SIZE_W]
@@ -69,31 +70,22 @@ def resize_kernel(
 
         input_x = w_idx << (hw_fl - 1)
         x0 = input_x >> hw_fl
-
+        y0x0 = tl.load(src_ptrs0 + x0, mask=mask, other=0).to(tl.int16)
+        y1x0 = tl.load(src_ptrs1 + x0, mask=mask, other=0).to(tl.int16)
 
         x1 = tl.minimum(x0 + 1, width - 1)
-
+        y0x1 = tl.load(src_ptrs0 + x1, mask=mask, other=0).to(tl.int16)
+        y1x1 = tl.load(src_ptrs1 + x1, mask=mask, other=0).to(tl.int16)
 
         w1_lambda = input_x - (x0 << hw_fl)
         w0_lambda = factor - w1_lambda
-
-        y0x0_offset = y0_offset + x0
-        y0x1_offset = y0_offset + x1
-        y1x0_offset = y1_offset + x0
-        y1x1_offset = y1_offset + x1
-
-        y0x0 = tl.load(src_ptr + y0x0_offset, mask=mask, other=0).to(tl.int16)
-        y0x1 = tl.load(src_ptr + y0x1_offset, mask=mask, other=0).to(tl.int16)
-        y1x0 = tl.load(src_ptr + y1x0_offset, mask=mask, other=0).to(tl.int16)
-        y1x1 = tl.load(src_ptr + y1x1_offset, mask=mask, other=0).to(tl.int16)
-
         sum1 = (y0x0 * w0_lambda + y0x1 * w1_lambda) >> hw_fl
         sum2 = (y1x0 * w0_lambda + y1x1 * w1_lambda) >> hw_fl
         sum = (sum1 * h0_lambda + sum2 * h1_lambda) >> hw_fl
 
         sum = sum.to(tl.int8)
 
-        tl.store(out_ptr + (pid_c * dst_height * dst_width + h_idx * dst_width + w_idx), sum, mask=mask)
+        tl.store(out_ptrs + w_idx, sum, mask=mask)
 
 
 def resize(src_arr, out_arr):
