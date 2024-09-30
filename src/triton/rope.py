@@ -23,7 +23,7 @@ def get_rope_kernel_autotune_config():
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [triton.Config({'BLOCK_SIZE': 1})]
+    return [triton.Config({'BLOCK_SIZE': 32})]
 
 @triton.autotune(
     configs=get_rope_kernel_autotune_config(),
@@ -68,8 +68,8 @@ def rope_kernel_fw(input_ptr, # [seq_len, batch_num, head_num, head_dim]
         x1 = tl.load(input_ptr + x1_offset, mask=mask, other=0.0)
         x2 = tl.load(input_ptr + x2_offset, mask=mask, other=0.0)
 
-        y1 = x1 * cos - x2 * sin
-        y2 = x1 * sin + x2 * cos
+        y1 = tl.fma(x1 , cos , -(x2 * sin))
+        y2 = tl.fma(x1 , sin , x2 * cos)
 
         tl.store(output_ptr + x1_offset, y1, mask=mask)
         tl.store(output_ptr + x2_offset, y2, mask=mask)

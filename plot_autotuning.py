@@ -44,14 +44,19 @@ def plot(data_frame, kernel_name, block_shape):
   ]
   for i in [1, 4, 8]:
     triton_start=3 + total_tuning_shape * (i//4)
-    triton_end=total_tuning_shape * (i//4 + 1)
+    triton_end=total_tuning_shape * (i//4 + 1) + 1
+    # print(triton_start,triton_end)
+
     x_processed = [ split_block_shape(data_frame.columns[i]) for i in range(triton_start,triton_end)]
+    # print(x_processed)
 
     gcc=data_frame.iloc[0:data_frame.shape[0], 1 + total_tuning_shape * (i//4)]
-    plt.plot(x_processed, [gcc[0]]* (total_tuning_shape-3), marker=marks[1], linestyle=linestyle_str[1], label=data_frame.columns[1 + total_tuning_shape * (i//4)])
+    plt.plot(x_processed, [gcc[0]]* (total_tuning_shape-2), marker=marks[1], linestyle=linestyle_str[1], label=data_frame.columns[1 + total_tuning_shape * (i//4)])
+    # print(gcc)
 
     zcc=data_frame.iloc[0:data_frame.shape[0], 2 + total_tuning_shape * (i//4)]
-    plt.plot(x_processed, [zcc[0]] * (total_tuning_shape-3), marker=marks[2], linestyle=linestyle_str[2], label=data_frame.columns[2 + total_tuning_shape * (i//4)])
+    # print(zcc)
+    plt.plot(x_processed, [zcc[0]] * (total_tuning_shape-2), marker=marks[2], linestyle=linestyle_str[2], label=data_frame.columns[2 + total_tuning_shape * (i//4)])
 
 
 
