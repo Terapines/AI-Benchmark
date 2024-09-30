@@ -20,7 +20,7 @@ def get_dropout_kernel_autotune_config():
     if(os.getenv("ENABLE_AUTOTUNING") == "dropout_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
-
+    # 64 is better than 32 in T8
     return [configs[0]]
 
 @triton.autotune(

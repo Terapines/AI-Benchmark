@@ -12,7 +12,7 @@ sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
 
 # C compile env
-ARCH=rv64gcv
+ARCH=rv64gcv_zvl256b
 ABI=lp64d
 
 GCC="riscv64-unknown-linux-gnu-g++ -march=${ARCH} -mabi=${ABI} -O3"

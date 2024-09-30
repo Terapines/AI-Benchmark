@@ -21,7 +21,7 @@ def get_warp_kernel_autotune_config():
         assert (len(configs) > 1), "Autotuning config size need be larger than 1"
         return configs
 
-    return [triton.Config({'BLOCK_SIZE_W': 64}),]
+    return [triton.Config({'BLOCK_SIZE_W': 32})]
 
 @triton.autotune(
     configs=get_warp_kernel_autotune_config(),

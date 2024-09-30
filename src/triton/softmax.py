@@ -80,13 +80,16 @@ def get_softmax_kernel_autotune_config():
         triton.Config({'BLOCK_SIZE': 8}),
         triton.Config({'BLOCK_SIZE': 16}),
         triton.Config({'BLOCK_SIZE': 32}),
-        triton.Config({'BLOCK_SIZE': 64})
+        triton.Config({'BLOCK_SIZE': 64}),
+        triton.Config({'BLOCK_SIZE': 128}),
+        triton.Config({'BLOCK_SIZE': 256})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "softmax_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [triton.Config({'BLOCK_SIZE': 1})]
+    # 64 is better than 32 in T1 and T4
+    return [triton.Config({'BLOCK_SIZE': 32})]
 
 @triton.autotune(
     configs=get_softmax_kernel_autotune_config(),

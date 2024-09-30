@@ -23,7 +23,7 @@ def get_resize_kernel_autotune_config():
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
       return configs
 
-    return [triton.Config({'BLOCK_SIZE_W': 16})]
+    return [triton.Config({'BLOCK_SIZE_W': 32})]
 
 @triton.autotune(
     configs=get_resize_kernel_autotune_config(),

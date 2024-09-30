@@ -13,7 +13,7 @@ sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
 
 # C compile env
-ARCH=rv64gcv
+ARCH=rv64gcv_zvl256b
 ABI=lp64d
 
 ZCC="z++ -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3"
@@ -148,7 +148,7 @@ build_triton_driver() {
     # Always check accurary
     ${COMPILER} ${DRIVER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel_$1_${block_shape} -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -DCHECK_ACCURACY -fPIC -o ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf
 
-    # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${driver_name}.elf &> ${KERNEL_BIN_DIR}/${driver_name}.elf.s
+    # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf &> ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf.s
 
       echo >&6
     } &

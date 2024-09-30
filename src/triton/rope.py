@@ -14,7 +14,10 @@ def get_rope_kernel_autotune_config():
         triton.Config({'BLOCK_SIZE': 4}),
         triton.Config({'BLOCK_SIZE': 8}),
         triton.Config({'BLOCK_SIZE': 16}),
-        triton.Config({'BLOCK_SIZE': 32})
+        triton.Config({'BLOCK_SIZE': 32}),
+        triton.Config({'BLOCK_SIZE': 64}),
+        triton.Config({'BLOCK_SIZE': 128}),
+        triton.Config({'BLOCK_SIZE': 256})
     ]
     if(os.getenv("ENABLE_AUTOTUNING") == "rope_kernel"):
       assert (len(configs) > 1), "Autotuning config size need be larger than 1"
