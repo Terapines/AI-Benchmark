@@ -46,9 +46,8 @@ int main(int argc, char *argv[])
 
     memset(real_out, 0, H * 2 * W * 2 * C * 2 * sizeof(int8_t));
 
-    std::string DB = getDB(argv[1]);
-
 #ifdef CHECK_ACCURACY
+    std::string DB = getDB(argv[1]);
     FILE *file = fopen(DB.c_str(), "rb");
     if (file)
     {

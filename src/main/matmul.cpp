@@ -48,9 +48,8 @@ int main(int argc, char *argv[]) {
 
   memset(real_out, 0, M * N * sizeof(float));
 
-  std::string DB = getDB(argv[1]);
-
 #ifdef CHECK_ACCURACY
+  std::string DB = getDB(argv[1]);
   FILE *file = fopen(DB.c_str(), "rb");
   if (file) {
     printf("File %s open for read\n", DB.c_str());
