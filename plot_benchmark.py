@@ -4,27 +4,33 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 # 读取Excel文件
-file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/bench-multi-shape/report.xls'  # 替换为你的Excel文件路径
+file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls'  # 替换为你的Excel文件路径
+
+# dropout_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (NxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=64)
+
+# warp_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (HxWxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=98)
+
+# resize_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (HxWxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=98)
+
+# rope_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (HxWxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=96)skip_blank_lines=True, sep='\t', nrows=98)
+
+# correlation_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (OUT_CHANNELxIN_CHANNELxHEIGHTxWIDTHxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1', 'gcc_T8',	'zcc_T8',	'triton_T8'
+# ], skip_blank_lines=True, sep='\t', nrows=96)
 
 
-correlation_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (OUT_CHANNELxIN_CHANNELxHEIGHTxWIDTHxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1', 'gcc_T8',	'zcc_T8',	'triton_T8'
-], skip_blank_lines=True, sep='\t', nrows=96)
+# layernorm_data = pd.read_csv(file_path, header=103 - 2 - 1, comment='#',  usecols=['shape (NxDxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1', 'triton-v2_T1', 'gcc_T8',	'zcc_T8',	'triton_T8', 'triton-v2_T8',
+# ], skip_blank_lines=True, sep='\t', nrows=256)
+# # two many data, filter
+# layernorm_df = layernorm_data.iloc[::2]
 
 
-layernorm_data = pd.read_csv(file_path, header=103 - 2 - 1, comment='#',  usecols=['shape (NxDxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1', 'triton-v2_T1', 'gcc_T8',	'zcc_T8',	'triton_T8', 'triton-v2_T8',
-], skip_blank_lines=True, sep='\t', nrows=256)
+# matmul_df = pd.read_csv(file_path, header=364 - 3 - 1, comment='#',  usecols=['shape (MxNxKxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1',  'gcc_T8',	'zcc_T8',	'triton_T8',
+# ], skip_blank_lines=True, sep='\t', nrows=128)
+
+
+# softmax_df = pd.read_csv(file_path, header=0, comment='#',  usecols=['shape (RxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4',  'gcc_T8',	'zcc_T8',	'triton_T8'], skip_blank_lines=True, sep='\t', nrows=91)
 # two many data, filter
-layernorm_df = layernorm_data.iloc[::2]
-
-
-matmul_df = pd.read_csv(file_path, header=364 - 3 - 1, comment='#',  usecols=['shape (MxNxKxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1',  'gcc_T8',	'zcc_T8',	'triton_T8',
-], skip_blank_lines=True, sep='\t', nrows=128)
-
-
-softmax_data = pd.read_csv(file_path, header=497 - 4 - 1, comment='#',  usecols=['shape (RxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1',  'gcc_T8',	'zcc_T8',	'triton_T8',
-], skip_blank_lines=True, sep='\t', nrows=256)
-# two many data, filter
-softmax_df = softmax_data.iloc[::2]
+# softmax_df = softmax_data.iloc[::2]
 
 
 def norm_performance(shape, value):
@@ -91,7 +97,13 @@ def plot(data_frame, kernel_name, kernel_shape, modulo=3):
   plt.show()
 
 
-plot(correlation_df, "correlation", "OUT_CHANNEL x IN_CHANNEL x HEIGHT x WIDTH")
-plot(layernorm_df, "layernorm", "N x D",4)
-plot(matmul_df, "matmul", "M x N x K x RUN_COUNT")
-plot(softmax_df, "softmax", "R x C x RUN_COUNT")
+# plot(correlation_df, "correlation", "OUT_CHANNEL x IN_CHANNEL x HEIGHT x WIDTH")
+# plot(layernorm_df, "layernorm", "N x D",4)
+# plot(matmul_df, "matmul", "M x N x K")
+# plot(softmax_df, "softmax", "R x C")
+# plot(dropout_df, "softmax", "N")
+
+# plot(warp_df, "warp", "H x W x C")
+
+# plot(resize_df, "resize", "H x W x C")
+

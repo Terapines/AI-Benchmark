@@ -3,14 +3,10 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# 读取Excel文件
-file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls'  # 替换为你的Excel文件路径
+# read Excel, replace to your Excel
+file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls'
 
-# correlation_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
-# layernorm_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
-# matmul_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
-# softmax_df = pd.read_csv(file_path, header=497 - 4 - 1, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
-resize_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
+data_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
 
 
 def split_block_shape(value):
@@ -89,8 +85,8 @@ def plot(data_frame, kernel_name, block_shape):
   # Show the plot
   plt.show()
 
-# plot(correlation_df, "correlation", "BLOCK_SIZE")
-# plot(layernorm_df, "layernorm", "BLOCK_SIZE")
-# plot(softmax_df, "softmax", "BLOCK_SIZE")
-# plot(matmul_df, "matmul", "BLOCK_SIZE")
-plot(resize_df, "resize", "BLOCK_SIZE_H x BLOCK_SIZE_W")
+# plot(data_df, "correlation", "BLOCK_SIZE")
+# plot(data_df, "layernorm", "BLOCK_SIZE")
+# plot(data_df, "softmax", "BLOCK_SIZE")
+# plot(data_df, "matmul", "BLOCK_SIZE")
+# plot(data_df, "resize", "BLOCK_SIZE_H x BLOCK_SIZE_W")
