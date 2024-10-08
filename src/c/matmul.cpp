@@ -1,6 +1,9 @@
 #include "kernel/matmul.h"
-#include "support/support.h"
 #include "support/omp.h"
+#include "support/support.h"
+
+#define BLOCK_SIZE_M 16
+#define BLOCK_SIZE_N 16
 
 void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
 
@@ -22,11 +25,16 @@ void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
     }
   }
 
-#pragma omp parallel for schedule(static) num_threads(max_threads.value())
-  for (int i = 0; i < M; i++) {
-    for (int k = 0; k < K; k++) {
-      for (int j = 0; j < N; j++) {
-        arg2[i * N + j] += arg0[i * K + k] * arg1[k * N + j];
+#pragma omp parallel for collapse(2) schedule(static) num_threads(max_threads.value())
+  for (int i = 0; i < M; i += BLOCK_SIZE_M) {
+    for (int j = 0; j < N; j += BLOCK_SIZE_N) {
+      for (int ii = i; ii < i + BLOCK_SIZE_M && ii < M; ++ii) {
+        for (int jj = j; jj < j + BLOCK_SIZE_N && jj < N; ++jj) {
+#pragma omp simd
+          for (int kk = 0; kk < K; ++kk) {
+            arg2[ii * N + jj] += arg0[ii * K + kk] * arg1[kk * N + jj];
+          }
+        }
       }
     }
   }
