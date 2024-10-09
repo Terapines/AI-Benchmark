@@ -32,6 +32,7 @@ COMPILER=(gcc zcc triton)
 THREADS=(1 4 8)
 
 TRITON_KERNELS=`ls ${BENCHMARK}/triton/`
+# TRITON_KERNELS=layernorm
 
 echo -n "" > ${REPORT_FILE}
 # Kernel performance on different shape
