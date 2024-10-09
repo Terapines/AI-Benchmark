@@ -27,11 +27,13 @@ void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
 
 #pragma omp parallel for collapse(2) schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < M; i += BLOCK_SIZE_M) {
+    int i_end = std::min(M, i + BLOCK_SIZE_M);
     for (int j = 0; j < N; j += BLOCK_SIZE_N) {
-      for (int ii = i; ii < i + BLOCK_SIZE_M && ii < M; ++ii) {
-        for (int jj = j; jj < j + BLOCK_SIZE_N && jj < N; ++jj) {
+      int j_end = std::min(N, j + BLOCK_SIZE_N);
 #pragma omp simd
-          for (int kk = 0; kk < K; ++kk) {
+      for (int kk = 0; kk < K; ++kk) {
+        for (int ii = i; ii < i_end; ++ii) {
+          for (int jj = j; jj < j_end; ++jj) {
             arg2[ii * N + jj] += arg0[ii * K + kk] * arg1[kk * N + jj];
           }
         }

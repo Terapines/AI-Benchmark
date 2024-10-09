@@ -8,7 +8,7 @@
 #include "kernel/correlation.h"
 #include "support/support.h"
 #include "support/omp.h"
-
+#include <cstring>
 
 __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
                                            int8_t *out_arr, size_t in_channel,
@@ -27,22 +27,28 @@ __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
     printf("max_threads: %d\n", max_threads.value());
 
     // For now, use the default chunk size, total iterations / max_threads.
-#pragma omp parallel for schedule(static) num_threads(max_threads.value())
-  for (size_t i = 0; i < height; ++i) {
-    for (size_t d = 0; d < out_channel; ++d) {
-      // ZCC 3.2.4 not enable support outer loop vectorization
-      // This pragma is used by outer loop vectorization.
-      // #pragma clang loop vectorize(assume_safety)
-
-      for (size_t j = d; j < width; j++) {
-        size_t out_idx = d * width * height + i * width + j;
-        int16_t sum_data = 0;
+  const size_t BLOCK_SIZE_W = 8;
+  #pragma omp parallel for collapse(2) num_threads(max_threads.value())
+  for (size_t d = 0; d < out_channel; ++d) {
+    for (size_t i = 0; i < height; ++i) {
+      for (size_t j = d; j < width; j += BLOCK_SIZE_W) {
+        int16_t sum_data[BLOCK_SIZE_W] = {0};
         for (size_t k = 0; k < in_channel; ++k) {
-          size_t in_idx1 = k * width * height + i * width + j;
-          size_t in_idx2 = in_idx1 - d;
-          sum_data += (int16_t)src0_arr[in_idx1] * src1_arr[in_idx2];
+          size_t vl = std::min(BLOCK_SIZE_W, width - j);
+          #pragma omp simd
+          for (size_t w = 0; w < vl; ++w) {
+            size_t in_idx1 = k * width * height + i * width + j + w;
+            size_t in_idx2 = in_idx1 - d;
+            sum_data[w] += (int16_t)(src0_arr[in_idx1]) * src1_arr[in_idx2];
+          }
         }
-        out_arr[out_idx] = (int8_t)(sum_data >> out_shift);
+
+        size_t vl = std::min(BLOCK_SIZE_W, width - j);
+        #pragma omp simd
+        for (size_t w = 0; w < vl; ++w) {
+          size_t out_idx = d * width * height + i * width + j + w;
+          out_arr[out_idx] = (int8_t)(sum_data[w] >> out_shift);
+        }
       }
     }
   }
