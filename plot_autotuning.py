@@ -3,21 +3,37 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# read Excel, replace to your Excel
-file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls'
+#############################################################################
+######        Only supports tuning one kernel once a time             #######
+######        Need config report file path                            #######
+#############################################################################
 
-data_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
+# Define the list of plot configurations
+plot_configs = [
+    {"kernel_name": "correlation", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+    {"kernel_name": "layernorm", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+    {"kernel_name": "softmax", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+    {"kernel_name": "matmul", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+    {"kernel_name": "resize", "tuning_param": "BLOCK_SIZE_H x BLOCK_SIZE_W", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+]
 
+
+# | #####  softmax_kernel kernel performance ##### |
+# | shape (RxCxRUN_COUNT) | gcc_T1  | zcc_T1  | triton_T1_softmax_kernel_8 | triton_T1_softmax_kernel_64 | gcc_T4 | zcc_T4  | triton_T4_softmax_kernel_8 | triton_T4_softmax_kernel_64 | ...  |
+# | --------------------- | ------- | ------- | -------------------------- | --------------------------- | ------ | ------- | -------------------------- | --------------------------- | -T8- |
+# | 1823x781x100          | 7.12539 | 6.93295 | 7.07778                    | 6.90874                     | 1.8199 | 1.82919 | 1.81947                    | 1.76622                     | ...  |
 
 def split_block_shape(value):
-  # 使用 split 方法分割字符串
+  # Splitting a string
   parts = value.split('_')
 
-  # 检查是否有足够的部分，并获取第二个下划线后的字符串
+  # FIXME: Check if there are enough parts and get the string after the second underscore
   if len(parts) > 2:
-      result = '_'.join(parts[2:])  # 将第二个下划线后面的部分连接起来
+      # Concat the part after the second underscore
+      result = '_'.join(parts[2:])
   else:
-      result = ''  # 如果没有第二个下划线，返回空字符串
+      # If there is no second underscore, return an empty string
+      result = ''
   return result
 
 def plot(data_frame, kernel_name, block_shape):
@@ -33,10 +49,10 @@ def plot(data_frame, kernel_name, block_shape):
 
   marks=["o", "*", "s", "^"]
   linestyle_str = [
-    'solid', # Same as (0, ()) or '-'；solid’， (0, ()) ， '-'三种都代表实线。
-    'dotted',  # Same as (0, (1, 1)) or '.'
-    'dashed',  # Same as '--'
-    'dashdot',  # Same as '-.'
+    'solid',
+    'dotted',
+    'dashed',
+    'dashdot',
   ]
   for i in [1, 4, 8]:
     triton_start=3 + total_tuning_shape * (i//4)
@@ -71,10 +87,10 @@ def plot(data_frame, kernel_name, block_shape):
 
   plt.ylabel('Running time: s')
 
-  # 将X轴标签移动到末端（坐标系中的 1, -0.1）
+  # Move the x-axis label to the end (1, -0.1 in the coordinate system)
   ax.xaxis.set_label_coords(1.0, 0.01)
 
-  # 将Y轴标签移动到末端（坐标系中的 -0.1, 1）
+  # Move the Y axis label to the end (-0.1, 1 in the coordinate system)
   ax.yaxis.set_label_coords(0, 1.0)
   ax.yaxis.label.set_rotation(0)
 
@@ -85,8 +101,8 @@ def plot(data_frame, kernel_name, block_shape):
   # Show the plot
   plt.show()
 
-# plot(data_df, "correlation", "BLOCK_SIZE")
-# plot(data_df, "layernorm", "BLOCK_SIZE")
-# plot(data_df, "softmax", "BLOCK_SIZE")
-# plot(data_df, "matmul", "BLOCK_SIZE")
-# plot(data_df, "resize", "BLOCK_SIZE_H x BLOCK_SIZE_W")
+# Iterate over each configuration and call the plot function
+for config in plot_configs:
+    file_path = config["report_file"]
+    data_df = pd.read_csv(file_path, header=0, comment='#', skip_blank_lines=True, sep='\t', nrows=1)
+    plot(data_df, config["kernel_name"], config["tuning_param"])

@@ -3,37 +3,98 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 
-# 读取Excel文件
-file_path = '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls'  # 替换为你的Excel文件路径
+#############################################################################
+######        Only supports plot one kernel once a time               #######
+######        Need config report file path                            #######
+#############################################################################
 
-#FIXME: Code refactor
-# dropout_df = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (NxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=64)
-
-# warp_data = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (HxWxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=98)
-# warp_df = warp_data.iloc[::2]
-
-# resize_data = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (HxWxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=98)
-# resize_df = resize_data.iloc[::2]
-
-# rope_data = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (SEQ_LENxBATCH_NUMxHEAD_NUMxHEAD_DIMxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8' ], skip_blank_lines=True, sep='\t', nrows=90)
-# rope_df = rope_data.iloc[::2]
-
-# correlation_data = pd.read_csv(file_path, header=0, comment='#', usecols=['shape (OUT_CHANNELxIN_CHANNELxHEIGHTxWIDTHxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8'
-# ], skip_blank_lines=True, sep='\t', nrows=96)
-# correlation_df = correlation_data.iloc[::2]
-
-# layernorm_data = pd.read_csv(file_path, header=0, comment='#',  usecols=['shape (NxDxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8'], skip_blank_lines=True, sep='\t', nrows=128)
-# # two many data, filter
-# layernorm_df = layernorm_data.iloc[::2]
-
-
-# matmul_data = pd.read_csv(file_path, header=0, comment='#',  usecols=['shape (MxNxKxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4', 'gcc_T8',	'zcc_T8',	'triton_T8'], skip_blank_lines=True, sep='\t', nrows=128)
-# matmul_df = matmul_data.iloc[::2]
-
-# softmax_data = pd.read_csv(file_path, header=0, comment='#',  usecols=['shape (RxCxRUN_COUNT)','gcc_T1',	'zcc_T1', 'triton_T1','gcc_T4',	'zcc_T4', 'triton_T4',  'gcc_T8',	'zcc_T8',	'triton_T8'], skip_blank_lines=True, sep='\t', nrows=91)
-# # two many data, filter
-# softmax_df = softmax_data.iloc[::2]
-
+# Define configurations for each dataset
+datasets = [
+    {
+        'name': 'warp',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (HxWxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 98,
+        'shape_label': 'H x W x C',
+        'xaxis': (0.96, 0.02),
+    },
+    {
+        'name': 'resize',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (HxWxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 98,
+        'shape_label': 'H x W x C',
+        'xaxis': (0.96, 0.02)
+    },
+    {
+        'name': 'rope',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (SEQ_LENxBATCH_NUMxHEAD_NUMxHEAD_DIMxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 89,
+        'shape_label': 'SEQ_LEN x BATCH_NUM x HEAD_NUM x HEAD_DIM',
+        'xaxis': (0.82, 0.02)
+    },
+    {
+        'name': 'correlation',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (OUT_CHANNELxIN_CHANNELxHEIGHTxWIDTHxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 96,
+        'shape_label': 'OUT_CHANNEL x IN_CHANNEL x HEIGHT x WIDTH',
+        'xaxis': (0.84, 0.02)
+    },
+    {
+        'name': 'layernorm',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (NxDxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 128,
+        'shape_label': 'N x D',
+        'xaxis': (0.98, 0.02)
+    },
+    {
+        'name': 'matmul',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (MxNxKxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 128,
+        'shape_label': 'M x N x K',
+        'xaxis': (0.96, 0.02)
+    },
+    {
+        'name': 'softmax',
+        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'usecols': [
+            'shape (RxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
+            'gcc_T4', 'zcc_T4', 'triton_T4',
+            'gcc_T8', 'zcc_T8', 'triton_T8'
+        ],
+        'nrows': 91,
+        'shape_label': 'R x C',
+        'xaxis': (0.98, 0.02)
+    }
+]
 
 def norm_performance(shape, value):
     # Convert to string and split by 'x'
@@ -49,11 +110,11 @@ def split_runcount(value):
   if last_x_index != -1:
     result = value[:last_x_index]
   else:
-    result = value  # 如果没有找到'x'，就不做任何修改
+    result = value
   return result
 
 
-def plot(data_frame, kernel_name, kernel_shape, modulo=3):
+def plot(data_frame, kernel_name, kernel_shape, kernel_xaixs, modulo=3):
   print(kernel_name, " data\n", data_frame)
   print(data_frame.shape)
 
@@ -64,17 +125,34 @@ def plot(data_frame, kernel_name, kernel_shape, modulo=3):
 
   marks=["o", "*", "s", "^"]
   linestyle_str = [
-    'solid', # Same as (0, ()) or '-'；solid’， (0, ()) ， '-'三种都代表实线。
-    'dotted',  # Same as (0, (1, 1)) or '.'
-    'dashed',  # Same as '--'
-    'dashdot',  # Same as '-.'
+    'solid',
+    'dotted',
+    'dashed',
+    'dashdot',
   ]
+  thread_1 = []
+  acc_4_to_1 = []
+  acc_8_to_1 = []
   for i in range(1, data_frame.shape[1]):
       x = data_frame.iloc[0:data_frame.shape[0], 0]
       y_original = data_frame.iloc[0:data_frame.shape[0], i]
 
       x_processed = [ split_runcount(value) for value in x]
       y_processed = [ norm_performance(x_value,y_value) for x_value, y_value in zip(x,y_original)]
+
+      # if ((i + 2) // modulo == 1):
+      #   thread_1 = y_processed
+      # elif((i + 2) // modulo == 2):
+      #   acc_4_to_1 = [ T4 / T1 for T4, T1 in zip(y_processed, thread_1)]
+      #   print("ave acc_4_to_1 : ", sum(acc_4_to_1)/len(acc_4_to_1))
+      #   print("min acc_4_to_1 : ", min(acc_4_to_1))
+      #   print("max acc_4_to_1 : ", max(acc_4_to_1))
+      # else :
+      #   acc_8_to_1 = [ T4 / T1 for T4, T1 in zip(y_processed, thread_1)]
+      #   print("acc_8_to_1 : ", sum(acc_8_to_1)/len(acc_8_to_1))
+      #   print("min acc_8_to_1 : ", min(acc_8_to_1))
+      #   print("max acc_8_to_1 : ", max(acc_8_to_1))
+      print(sum(y_processed)/len(y_processed))
 
       # Make thread 4 data transparent to avoid overlapping with thread 8 data
       if((i + 2) // modulo == 2):
@@ -86,33 +164,47 @@ def plot(data_frame, kernel_name, kernel_shape, modulo=3):
   plt.title(kernel_name + " kernel performance")
   plt.xlabel(kernel_shape)
 
-  plt.ylabel('Running time: GB/s')
-  # plt.yscale('log')  # 使用对数刻度
-  # plt.ylim(0.02, 0.06)  # 设置纵轴范围
+  plt.ylabel('GB/s')
+  # Use logarithmic scale
+  # plt.yscale('log')
+  # Set the vertical axis range
+  # plt.ylim(0.02, 0.06)
 
-  # 将X轴标签移动到末端（坐标系中的 1, -0.1）
-  ax.xaxis.set_label_coords(1.0, 0.01)
+  # Move the x-axis label to the end
+  ax.xaxis.set_label_coords(kernel_xaixs[0],kernel_xaixs[1])
 
-  # 将Y轴标签移动到末端（坐标系中的 -0.1, 1）
-  ax.yaxis.set_label_coords(0, 1.0)
+  # Move the Y axis label to the end (-0.1, 1 in the coordinate system)
+  ax.yaxis.set_label_coords(0.02, 1.0)
   ax.yaxis.label.set_rotation(0)
 
 
   plt.legend(loc='upper right', fontsize='small')
-  plt.legend(fontsize=12)  # 你可以根据需要调整数值
+  plt.legend(fontsize=12)
   plt.xticks(rotation=90)
   # plt.grid(True)
   # Show the plot
   plt.show()
 
-#FIXME: Code refactor
-# plot(correlation_df, "correlation", "OUT_CHANNEL x IN_CHANNEL x HEIGHT x WIDTH")
-# plot(layernorm_df, "layernorm", "N x D")
-# plot(matmul_df, "matmul", "M x N x K")
-# plot(softmax_df, "softmax", "R x C")
-# plot(dropout_df, "dropout", "N")
+# Iterate through each dataset configuration
+for dataset in datasets:
+    # Read and process data
+    data = pd.read_csv(
+        dataset['report_file'],
+        header=0,
+        comment='#',
+        usecols=dataset['usecols'],
+        skip_blank_lines=True,
+        sep='\t',
+        nrows=dataset['nrows']
+    )
 
-# plot(warp_df, "warp", "H x W x C")
+    # Apply any data processing steps if necessary
+    df = data.iloc[::2]  # Selecting every other row
 
-# plot(resize_df, "resize", "H x W x C")
-# plot(rope_df, "rope", "SEQ_LEN x BATCH_NUM x HEAD_NUM x HEAD_DIM")
+    # Plot data
+    plot(
+        df,
+        dataset['name'],
+        dataset['shape_label'],
+        dataset.get('xaxis')
+    )

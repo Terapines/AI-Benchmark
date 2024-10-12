@@ -30,39 +30,20 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 
 ### FIXME: Choose which kernels should be compiled
 # C_KERNELS=`ls ${SRC_DIR}/c/*.cpp`
-C_KERNELS=(
-  ${SRC_DIR}/c/correlation.cpp
-  ${SRC_DIR}/c/layernorm.cpp
-  ${SRC_DIR}/c/matmul.cpp
-  ${SRC_DIR}/c/softmax.cpp
-  ${SRC_DIR}/c/rope.cpp
-  ${SRC_DIR}/c/dropout.cpp
-  ${SRC_DIR}/c/resize.cpp
-  ${SRC_DIR}/c/warp.cpp
-)
-
 # TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
-TRITON_KERNELS=(
-  ${SRC_DIR}/triton/correlation.py
-  ${SRC_DIR}/triton/layernorm.py
-  ${SRC_DIR}/triton/matmul.py
-  ${SRC_DIR}/triton/softmax.py
-  ${SRC_DIR}/triton/rope.py
-  ${SRC_DIR}/triton/dropout.py
-  ${SRC_DIR}/triton/resize.py
-  ${SRC_DIR}/triton/warp.py
-)
-
 # DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
-DRIVERS=(
-  ${SRC_DIR}/main/correlation.cpp
-  ${SRC_DIR}/main/layernorm.cpp
-  ${SRC_DIR}/main/matmul.cpp
-  ${SRC_DIR}/main/softmax_kernel.cpp
-  ${SRC_DIR}/main/rope.cpp
-  ${SRC_DIR}/main/dropout.cpp
-  ${SRC_DIR}/main/resize.cpp
-  ${SRC_DIR}/main/warp.cpp
+
+### FIXME: Choose which kernels should be compiled
+# Array of "c_kernel triton_kernel driver_path" entries
+drivers=(
+  "${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
+  "${SRC_DIR}/c/layernorm.cpp ${SRC_DIR}/triton/layernorm.py ${SRC_DIR}/main/layernorm.cpp"
+  "${SRC_DIR}/c/matmul.cpp ${SRC_DIR}/triton/matmul.py ${SRC_DIR}/main/matmul.cpp"
+  "${SRC_DIR}/c/softmax.cpp ${SRC_DIR}/triton/softmax.py ${SRC_DIR}/main/softmax_kernel.cpp"
+  "${SRC_DIR}/c/rope.cpp ${SRC_DIR}/triton/rope.py ${SRC_DIR}/main/rope.cpp"
+  "${SRC_DIR}/c/dropout.cpp ${SRC_DIR}/triton/dropout.py ${SRC_DIR}/main/dropout.cpp"
+  "${SRC_DIR}/c/resize.cpp ${SRC_DIR}/triton/resize.py ${SRC_DIR}/main/resize.cpp"
+  "${SRC_DIR}/c/warp.cpp ${SRC_DIR}/triton/warp.py ${SRC_DIR}/main/warp.cpp"
 )
 
 # Default clean build directory
@@ -321,6 +302,28 @@ echo "Drivers : "${DRIVERS}
 ### TODO: Options for build function
 # 1. build
 # 2. copy shape config
+
+
+C_KERNELS=""
+TRITON_KERNELS=""
+DRIVERS=""
+
+# Iterate over each entry and build the driver
+for entry in "${drivers[@]}"; do
+  # Read the three components into variables
+  IFS=' ' read -r c_kernel triton_kernel driver_path <<< "$entry"
+
+  # Set environment variables
+  C_KERNELS+=" ${c_kernel}"
+  TRITON_KERNELS+=" ${triton_kernel}"
+  DRIVERS+=" ${driver_path}"
+done
+
+# Optionally export them if build_triton_driver requires
+export C_KERNELS
+export TRITON_KERNELS
+export DRIVERS
+
 echo "build golden using gcc"
 build_driver gcc
 

@@ -1,6 +1,6 @@
 # Triton builds
 aux/
-bin/
+*bin/
 lib/
 obj/
 *.xls

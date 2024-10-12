@@ -27,11 +27,29 @@ TRITON_PYTHON_VENV=${TRITON_PLUGIN_DIRS}/.venv
 
 KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include/
 
-# compile threads
+# Compilation threads
 MAX_MULTITHREADING=8
 
 # Default clean build directory
 DO_CLEAN="--clean"
+
+
+### FIXME: Choose which kernels should be compiled
+# FIXME: Use config
+
+# Array of "kernel_path driver_path tunning_arg" entries
+drivers=(
+  "triton/layernorm.py main/layernorm.cpp _layer_norm_fwd_fused"
+  "triton/layernorm.py main/layernorm.cpp _layer_norm_bwd_fused"
+  "triton/correlation.py main/correlation.cpp correlation_kernel"
+  "triton/softmax.py main/softmax_kernel.cpp softmax_kernel"
+  "triton/matmul.py main/matmul.cpp matmul_kernel"
+  "triton/rope.py main/rope.cpp rope_kernel"
+  "triton/dropout.py main/dropout.cpp dropout_kernel"
+  "triton/resize.py main/resize.cpp resize_kernel"
+  "triton/warp.py main/warp.cpp warp_kernel"
+)
+
 
 # Helper function
 help()
@@ -86,8 +104,8 @@ build_triton_driver() {
 
   # compile triton kernel: .py --> .llir + launcher.cpp
   # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
-  ### FIXME: 多个kernel如何指定开启那个kernel, 是否支持同时开启
-  ### 可能需要两个参数来控制， 一个参数控制 ENABLE，  另一个参数控制 which ENABLE，
+  ### FIXME: How to specify which kernel to enable among multiple kernels, and whether to enable them simultaneously
+  ### Two parameters may be needed to control, one parameter controls ENABLE, and the other parameter controls which ENABLE.
   ENABLE_AUTOTUNING=$1 KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${TRITON_KERNEL}
 
   driver_name=`basename ${DRIVER} .cpp`
@@ -204,43 +222,23 @@ mkdir -p ${BUILD_DIR}/aux/src
 build_support_lib
 
 
-echo "build triton kernel"
+# Iterate over each entry and build the driver
+for entry in "${drivers[@]}"; do
+  # Read the three components into variables
+  IFS=' ' read -r kernel_path driver_path tunning_arg <<< "$entry"
 
-### FIXME: Choose which kernels should be compiled
-# TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
-# FIXME: Use config
-TRITON_KERNEL=${SRC_DIR}/triton/layernorm.py
-DRIVER=${SRC_DIR}/main/layernorm.cpp
+  # Set environment variables
+  TRITON_KERNEL="${SRC_DIR}/${kernel_path}"
+  DRIVER="${SRC_DIR}/${driver_path}"
 
-build_triton_driver _layer_norm_fwd_fused
-build_triton_driver _layer_norm_bwd_fused
+  # Optionally export them if build_triton_driver requires
+  export TRITON_KERNEL
+  export DRIVER
 
+  # Call the build function with the specified argument
+  build_triton_driver "$tunning_arg"
 
-TRITON_KERNEL=${SRC_DIR}/triton/correlation.py
-DRIVER=${SRC_DIR}/main/correlation.cpp
-build_triton_driver correlation_kernel
-
-
-TRITON_KERNEL=${SRC_DIR}/triton/softmax.py
-DRIVER=${SRC_DIR}/main/softmax_kernel.cpp
-build_triton_driver softmax_kernel
-
-TRITON_KERNEL=${SRC_DIR}/triton/matmul.py
-DRIVER=${SRC_DIR}/main/matmul.cpp
-build_triton_driver matmul_kernel
-
-TRITON_KERNEL=${SRC_DIR}/triton/rope.py
-DRIVER=${SRC_DIR}/main/rope.cpp
-build_triton_driver rope_kernel
-
-TRITON_KERNEL=${SRC_DIR}/triton/dropout.py
-DRIVER=${SRC_DIR}/main/dropout.cpp
-build_triton_driver dropout_kernel
-
-TRITON_KERNEL=${SRC_DIR}/triton/resize.py
-DRIVER=${SRC_DIR}/main/resize.cpp
-build_triton_driver resize_kernel
-
-TRITON_KERNEL=${SRC_DIR}/triton/warp.py
-DRIVER=${SRC_DIR}/main/warp.cpp
-build_triton_driver warp_kernel
+  # Unset variables if they shouldn't persist
+  unset TRITON_KERNEL
+  unset DRIVER
+done
