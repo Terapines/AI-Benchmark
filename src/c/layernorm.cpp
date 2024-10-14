@@ -1,8 +1,8 @@
 #include "kernel/layernorm.h"
 #include "support/omp.h"
 #include "support/support.h"
-#include <math.h>
 #include <cstring>
+#include <math.h>
 
 void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
                        float *weight, float *bias, const int N, const int D) {
@@ -18,7 +18,6 @@ void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-    // For now, use the default chunk size, total iterations / max_threads.
 #pragma omp parallel for schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < N; i++) {
     // seek to the input position inp[i,:]
@@ -41,9 +40,9 @@ void layernorm_forward(float *out, float *mean, float *rstd, float *inp,
     // seek to the output position in out[i,:]
     float *out_r = out + i * D;
     for (int j = 0; j < D; j++) {
-      float n = (s * (inp_r[j] - m));    // normalized output
-      float o = n * weight[j] + bias[j]; // scale and shift it
-      out_r[j] = o;                      // write
+      float n = (s * (inp_r[j] - m));
+      float o = n * weight[j] + bias[j];
+      out_r[j] = o;
     }
     // cache the mean and rstd for the backward pass later
     mean[i] = m;
@@ -64,7 +63,6 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-  // For now, use the default chunk size, total iterations / max_threads.
 #pragma omp parallel for schedule(static) num_threads(max_threads.value())   reduction(+ : dbias[:D])  reduction(+ : dweight[:D])
   for (int i = 0; i < N; i++) {
 
@@ -80,7 +78,8 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
     float c2 = 0.0f;
     for (int j = 0; j < D; j++) {
       float norm = (inp_r[j] - mean_r) * rstd_r;
-      float dnorm_j = weight[j] * dout_r[j]; // wdy
+      // wdy
+      float dnorm_j = weight[j] * dout_r[j];
 
       c2 += dnorm_j;
 
@@ -103,10 +102,10 @@ void layernorm_backward(float *dinp, float *dweight, float *dbias, float *dout,
 
       // gradient contribution to input
       float dval = 0.0f;
-      dval += dnorm_j;   // term 1
-      dval -= c2;        // term 2
-      dval -= norm * c1; // term 3
-      dval *= rstd_r;    // final scale
+      dval += dnorm_j;
+      dval -= c2;
+      dval -= norm * c1;
+      dval *= rstd_r;
       dinp_r[j] += dval;
     }
   }

@@ -47,14 +47,14 @@ std::optional<int64_t> getIntEnv(const std::string &env) {
   return result;
 }
 
-std::optional<std::string> getStringEnv(const std::string &env){
+std::optional<std::string> getStringEnv(const std::string &env) {
   const char *cstr = std::getenv(env.c_str());
   if (!cstr)
     return std::nullopt;
   return std::string(cstr);
 }
 
-std::string getDB(const std::string& Shape){
+std::string getDB(const std::string &Shape) {
   std::string DB;
   if (auto V = getStringEnv("DB_FILE"))
     DB = V.value();
@@ -62,7 +62,6 @@ std::string getDB(const std::string& Shape){
   DB += "_" + Shape + ".bin";
   return DB;
 }
-
 
 std::unique_ptr<uint32_t[][3]> get_all_grids(uint32_t gridX, uint32_t gridY,
                                              uint32_t gridZ) {

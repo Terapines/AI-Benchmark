@@ -6,8 +6,8 @@
  */
 
 #include "kernel/correlation.h"
-#include "support/support.h"
 #include "support/omp.h"
+#include "support/support.h"
 #include <cstring>
 
 __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
@@ -26,16 +26,15 @@ __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-    // For now, use the default chunk size, total iterations / max_threads.
   const size_t BLOCK_SIZE_W = 8;
-  #pragma omp parallel for collapse(2) num_threads(max_threads.value())
+#pragma omp parallel for collapse(2) num_threads(max_threads.value())
   for (size_t d = 0; d < out_channel; ++d) {
     for (size_t i = 0; i < height; ++i) {
       for (size_t j = d; j < width; j += BLOCK_SIZE_W) {
         int16_t sum_data[BLOCK_SIZE_W] = {0};
         for (size_t k = 0; k < in_channel; ++k) {
           size_t vl = std::min(BLOCK_SIZE_W, width - j);
-          #pragma omp simd
+#pragma omp simd
           for (size_t w = 0; w < vl; ++w) {
             size_t in_idx1 = k * width * height + i * width + j + w;
             size_t in_idx2 = in_idx1 - d;
@@ -44,7 +43,7 @@ __attribute__((noinline)) void correlation(int8_t *src0_arr, int8_t *src1_arr,
         }
 
         size_t vl = std::min(BLOCK_SIZE_W, width - j);
-        #pragma omp simd
+#pragma omp simd
         for (size_t w = 0; w < vl; ++w) {
           size_t out_idx = d * width * height + i * width + j + w;
           out_arr[out_idx] = (int8_t)(sum_data[w] >> out_shift);

@@ -1,6 +1,6 @@
 #include "kernel/softmax.h"
-#include "support/support.h"
 #include "support/omp.h"
+#include "support/support.h"
 #include <math.h>
 
 void softmax(float *input, float *out, const int R, const int C) {
@@ -15,17 +15,16 @@ void softmax(float *input, float *out, const int R, const int C) {
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-    // For now, use the default chunk size, total iterations / max_threads.
 #pragma omp parallel for schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < R; i++) {
-    // 找到该行的最大值
+    // find max value in each row
     float *input_r = input + i * C;
     float max_val = input_r[0];
     for (int j = 1; j < C; j++) {
       max_val = std::fmax(input_r[j], max_val);
     }
 
-    // 减去最大值并计算指数
+    // sub maximum and calculate exp
     float sum_exp = 0.0;
     float *out_r = out + i * C;
     for (int j = 0; j < C; j++) {
@@ -33,7 +32,7 @@ void softmax(float *input, float *out, const int R, const int C) {
       sum_exp += out_r[j];
     }
 
-    // 归一化
+    // normalize
     for (int j = 0; j < C; j++) {
       out_r[j] /= sum_exp;
     }

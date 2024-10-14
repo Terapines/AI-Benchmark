@@ -17,7 +17,6 @@ void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
   if (getBoolEnv("TRITON_CPU_OMP_DEBUG"))
     printf("max_threads: %d\n", max_threads.value());
 
-  // For now, use the default chunk size, total iterations / max_threads.
 #pragma omp parallel for schedule(static) num_threads(max_threads.value())
   for (int i = 0; i < M; i++) {
     for (int j = 0; j < N; j++) {
@@ -25,7 +24,8 @@ void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
     }
   }
 
-#pragma omp parallel for collapse(2) schedule(static) num_threads(max_threads.value())
+#pragma omp parallel for collapse(2) schedule(static)                          \
+    num_threads(max_threads.value())
   for (int i = 0; i < M; i += BLOCK_SIZE_M) {
     int i_end = std::min(M, i + BLOCK_SIZE_M);
     for (int j = 0; j < N; j += BLOCK_SIZE_N) {
@@ -40,5 +40,4 @@ void matmul(float *arg0, float *arg1, float *arg2, int M, int N, int K) {
       }
     }
   }
-
 }
