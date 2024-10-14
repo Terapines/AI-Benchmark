@@ -295,10 +295,6 @@ if [ "x$DO_CLEAN" = "x--clean" ]; then
     rm -rf $BUILD_DIR
 fi
 
-echo "C_KERNELS : "${C_KERNELS}
-echo "TRITON_KERNELS : "${TRITON_KERNELS}
-echo "Drivers : "${DRIVERS}
-
 ### TODO: Options for build function
 # 1. build
 # 2. copy shape config
@@ -323,6 +319,10 @@ done
 export C_KERNELS
 export TRITON_KERNELS
 export DRIVERS
+
+echo "C_KERNELS : "${C_KERNELS}
+echo "TRITON_KERNELS : "${TRITON_KERNELS}
+echo "Drivers : "${DRIVERS}
 
 echo "build golden using gcc"
 build_driver gcc
