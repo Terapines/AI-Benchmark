@@ -2,66 +2,65 @@
 RISCV C and Triton AI-Benchmark
 
 
+### Directory Description:
 
-### 目录说明：
+1. **Root Directory**：
 
-1. **根目录**：
+   - `build.sh`: Compiles the kernel and driver into the build directory.
+   - `copy_remote_back.sh`: Copies reports and other files back to the local machine.
+   - `copy_to_remote.sh`: Copies the compiled ELF files to the remote RISC-V server.
+   - `report.sh`: Generates performance reports.
+   - `run.sh`: Runs configurations based on different shapes and generates runtime statistics.
+   - `plot_autuning.py`: Used to plot the autuning result, help finding the best autuning block shape
+   - `plot_benchmark.py`: Used to plot the benchmark result.
 
-   - `build.sh`：编译kernel和driver到build 目录
-   - `copy_remote_back.sh`：将报表等copy回本地。
-   - `copy_to_remote.sh`：将编译生成的 ELF 文件拷贝到远程 RISC-V 服务器。
-   - `report.sh`：生成性能报告。
-   - `run.sh`：根据不同的shape配置，运行并且生成运行时间的统计。
+   **NOTE**: Need fixed the environment variable in the script.
 
-2. **`include` 目录**：包含头文件，用于声明不同模块的函数和数据结构。
+2. **`include`**: Contains header files used to declare functions and data structures for different modules.
 
-   - `kernel`：包含C算子相关的头文件。Triton算子的头文件会自动生成到build目录
-
-      - `support`： 通用的函数的头文件目录。
-        - `benchmark.h`：性能测试相关的头文件。暂时没有用到
-        - `omp.h`：OpenMP 并行处理相关的头文件。
-        - `support.h`：通用的函数。
+   - `kernel`: Contains header files related to C operators. Triton kernel header files are automatically generated into the build directory.
+      - `support`: Directory for header files of common functions.
+        - `benchmark.h`: Header file related to performance testing. Currently not used.
+        - `omp.h`: Header file related to OpenMP parallel processing.
+        - `support.h`: Common functions.
 
 
-3. **`src` 目录**：源代码目录。
+3. **`src`**: Source code directory.
 
-   - `c`： C语言kernel
+   - `c`: C language kernel.
 
-   - `main` : 测试程序
+   - `main`: Test programs.
 
-     - `*.cfg`：shape的配置文件。用于统计不同shape的输入输出下算子的性能
-     - `*.cpp`：测试程序。
+     - `*.cfg`: Configuration files for shapes. Used to evaluate kernel performance under different input and output shapes.
+     - `*.cpp`: Test programs.
 
-   - `support`：通用的函数的源文件目录
+   - `support`: Directory for source files of common functions.
 
-   - `triton` Triton语言kernel
-
-     - `layernorm` 目前用于保存Triton算子的LLVM IR 文件和launcher文件。 后续直接生成到build目录
-
-       - `*.llir`：Triton kernel 编译后的LLVM IR 文件。
-       - `*_launcher.cpp`和`*_launcher.h`：launcher文件
-
-     - `*.py` ：Triton  算子的实现文件。
+   - `triton`: Triton language kernel.
+4. **`patch`**: Triton-CPU patch file.
+   * 0001: Support RISC-V cross-compile
+   * 0002: Support autotuning
+   * 0003: Support discrete memory access lowering to vector.gather
 
 ### Autotuning
-triton-cpu 已经打过0001-patch的基础上，在加上0002-autotuning patch
+Based on triton-cpu with the 0001-patch applied, the 0002-autotuning patch is added.
 
-autotuning脚本只编译了triton kernel, 如果需要对比C kernel的数据，需要关闭build脚本中的triton kernel编译，先运行build.sh， 然后运行autotuning.sh
+The autotuning script only compiles the Triton kernel. If you need to compare data with the C kernel, you need to disable the Triton kernel compilation in the build script, first run build.sh, and then run autotuning.sh.
 
-**NOTE**: patch文件在patch目录下
+**NOTE**: Patch files are located in the patch directory.
 
-### 添加一个 kernel 到 benchmark 的流程：
-1. 在 src/c/ 目录下添加与 triton-cpu 对比的 kernel 实现（比如 c++ kernel）
-   1. 添加多线程的pragma
-2. 在 src/triton/ 目录下添加 kernel.py 文件，该文件中实现 triton-cpu kernel 并调用该 kernel
-   1. 需要注意autotuning添加的格式
-   2. autotuning需要删除 kernel[grid] 调用的时候的 BLOCK_SIZE 的赋值
-3. 在 src/main/ 目录下添加 kernel.cpp 文件（具体可参考 benchmark 已有的 kernel），用来调用对比 kernel 和 triton-cpu kernel，并评估性能
-   1. 条件编译triton和c kernel
-   2. 打印函数使用support.h中定义的宏
-   3. grid计算时使用的block size已经生成到了build/include/*launcher.h 文件中， 命名规则是: {kernel}_{BLOCK_SIZE}
+### Procedure to add a kernel to the AI-Benchmark：
+1. Add a kernel implementation (e.g., C++ kernel) in the src/c/ directory to compare with the Triton kernel.
+   1. Add multi-threading pragmas.
+2. Add a kernel.py file in the src/triton/ directory. This file implements the Triton kernel.
+   1. Pay attention to the format added by autotuning.
+   2. Autotuning needs to remove the assignment of BLOCK_SIZE when calling kernel[grid].
+3. Add a kernel.cpp file in the src/main/ directory (refer to existing kernels in the benchmark for specifics) to call and compare the kernel with the Triton kernel and evaluate performance.
+   1. Conditionally compile Triton and C kernels.
+   2. Use the macros defined in support.h for printing functions.
+   3. The block size used during grid computation has been generated into the build/include/*launcher.h files, following the naming convention: {kernel}_{BLOCK_SIZE}.
 
-### 版本说明：
+### Version Information:
 1. **zcc**
    - `ZCC-Pro-3.2.4-Ubuntu22.tar.bz2, md5sum: 784cde1fa77cec77a256e8565ff1328e`
 
