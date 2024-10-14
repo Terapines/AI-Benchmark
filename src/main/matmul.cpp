@@ -90,12 +90,6 @@ int main(int argc, char *argv[]) {
   high_resolution_clock::time_point endTime = high_resolution_clock::now();
   milliseconds timeInterval =
       std::chrono::duration_cast<milliseconds>(endTime - beginTime);
-  cout << "Running Time: " << timeInterval.count() << " ms" << endl;
-  cout << "Triton-cpu kernel: "
-       << M * N * K * RUN_COUNT / (timeInterval.count() / 1000.0) / 1e9
-       << " GFLOPS" << endl;
-  fprintf(stderr, "Triton-cpu kernel: %f GFLOPS\n",
-          M * N * K * RUN_COUNT / (timeInterval.count() / 1000.0) / 1e9);
 
   std::chrono::duration<double> triton_correlation_time_interval =
       endTime - beginTime;
@@ -116,12 +110,6 @@ int main(int argc, char *argv[]) {
 
   milliseconds timeInterval =
       std::chrono::duration_cast<milliseconds>(endTime - beginTime);
-  cout << "Running Time: " << timeInterval.count() << " ms" << endl;
-  cout << "c++ matmul: "
-       << M * N * K * RUN_COUNT / (timeInterval.count() / 1000.0) / 1e9
-       << " GFLOPS" << endl;
-  fprintf(stderr, "c++ matmul: %f GFLOPS\n",
-          M * N * K * RUN_COUNT / (timeInterval.count() / 1000.0) / 1e9);
 
   std::chrono::duration<double> c_correlation_time_interval =
       endTime - beginTime;

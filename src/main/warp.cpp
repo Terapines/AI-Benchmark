@@ -74,17 +74,9 @@ int main(int argc, char *argv[])
     }
 #endif
 
-    printf("Input:\n");
-    for (int i = 0; i < std::min(16, H * W * C); i++)
-    {
-        printf("%hhd  ", input[i]);
-        if (i == std::min(16, H * W * C) - 1)
-            printf("...\n");
-    }
 
 #ifdef TRITON_KERNEL_ENABLE
     // Run Triton kernel
-    printf("Start running Triton kernel %d times.\n", RUN_COUNT);
 
     int gridX = H;
     int gridY = C;
@@ -98,24 +90,12 @@ int main(int argc, char *argv[])
     auto end = std::chrono::high_resolution_clock::now();
     auto time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
-    printf("Triton output:\n");
-    for (int i = 0; i < std::min(16, H * W * C); i++)
-    {
-        printf("%hhd  ", real_out[i]);
-        if (i == std::min(16, H * W * C) - 1)
-            printf("...\n");
-    }
-
-    printf("Triton kernel running time: %d ms\n", (int)time_interval.count());
     PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, std::chrono::duration<double>(end - begin).count())
 
-    // NOTE: The GFLOPS calculation is approximate
-    printf("Triton kernel: %f GFLOPS\n", (H * W * C * RUN_COUNT) / (time_interval.count() / 1000.0) / 1e9);
 #endif
 
 #ifdef C_KERNEL_ENABLE
     // Run C++ kernel
-    printf("Start running C++ kernel %d times.\n", RUN_COUNT);
 
     auto begin_c = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
@@ -125,18 +105,8 @@ int main(int argc, char *argv[])
     auto end_c = std::chrono::high_resolution_clock::now();
     auto time_interval_c = std::chrono::duration_cast<std::chrono::milliseconds>(end_c - begin_c);
 
-    printf("C++ output:\n");
-    for (int i = 0; i < std::min(16, H * W * C); i++)
-    {
-        printf("%hhd  ", real_out[i]);
-        if (i == std::min(16, H * W * C) - 1)
-            printf("...\n");
-    }
-
-    printf("C++ kernel running time: %d ms\n", (int)time_interval_c.count());
     PRINT_KERNEL_RUNNING_TIME(C_KERNEL, std::chrono::duration<double>(end_c - begin_c).count())
 
-    printf("C++ kernel: %f GFLOPS\n", (H * W * C * RUN_COUNT) / (time_interval_c.count() / 1000.0) / 1e9);
 #endif
 
 #ifdef CHECK_ACCURACY

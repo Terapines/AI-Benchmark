@@ -81,7 +81,6 @@ int main(int argc, char *argv[])
 
 #ifdef TRITON_KERNEL_ENABLE
     // run triton kernel
-    printf("Start running Triton kernel %d times.\n", RUN_COUNT);
 
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
@@ -91,24 +90,12 @@ int main(int argc, char *argv[])
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
 
-    printf("Triton output:\n");
-    for (int i = 0; i < std::min(16, SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM); i++)
-    {
-        printf("%.3f  ", real_out[i]);
-        if (i == std::min(16, SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM) - 1)
-            printf("...\n");
-    }
-
-    printf("Triton kernel running time: %d ms\n", (int)time_interval.count());
     PRINT_KERNEL_RUNNING_TIME(TRITON_KERNEL, std::chrono::duration<double>(end - begin).count())
 
-    // NOTE: The GFLOPS calculation is not accurate, just for reference
-    printf("Triton kernel: %f GFLOPS\n", SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM * RUN_COUNT / (time_interval.count() / 1000.0) / 1e9);
 #endif
 
 #ifdef C_KERNEL_ENABLE
     // run c++ kernel
-    printf("Start running c++ kernel %d times.\n", RUN_COUNT);
 
     std::chrono::high_resolution_clock::time_point begin_c = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
@@ -118,19 +105,8 @@ int main(int argc, char *argv[])
     std::chrono::high_resolution_clock::time_point end_c = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds time_interval_c = std::chrono::duration_cast<std::chrono::milliseconds>(end_c - begin_c);
 
-    printf("c++ output:\n");
-    for (int i = 0; i < std::min(16, SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM); i++)
-    {
-        printf("%.3f  ", real_out[i]);
-        if (i == std::min(16, SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM) - 1)
-            printf("...\n");
-    }
-
-    printf("c++ kernel running time: %d ms\n", (int)time_interval_c.count());
     PRINT_KERNEL_RUNNING_TIME(C_KERNEL, std::chrono::duration<double>(end_c - begin_c).count())
 
-    // NOTE: The GFLOPS calculation is not accurate, just for reference
-    printf("c++ kernel: %f GFLOPS\n", SEQ_LEN * BATCH_NUM * HEAD_NUM * HEAD_DIM * RUN_COUNT / (time_interval_c.count() / 1000.0) / 1e9);
 #endif
 
 #ifdef CHECK_ACCURACY
