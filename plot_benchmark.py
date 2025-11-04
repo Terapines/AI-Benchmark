@@ -2,17 +2,21 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 #############################################################################
 ######        Only supports plot one kernel once a time               #######
 ######        Need config report file path                            #######
 #############################################################################
 
+# Get the AI-Benchmark directory
+AI_BENCHMARK_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # Define configurations for each dataset
 datasets = [
     {
         'name': 'warp',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (HxWxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -24,7 +28,7 @@ datasets = [
     },
     {
         'name': 'resize',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (HxWxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -36,7 +40,7 @@ datasets = [
     },
     {
         'name': 'rope',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (SEQ_LENxBATCH_NUMxHEAD_NUMxHEAD_DIMxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -48,7 +52,7 @@ datasets = [
     },
     {
         'name': 'correlation',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (OUT_CHANNELxIN_CHANNELxHEIGHTxWIDTHxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -60,7 +64,7 @@ datasets = [
     },
     {
         'name': 'layernorm',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (NxDxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -72,7 +76,7 @@ datasets = [
     },
     {
         'name': 'matmul',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (MxNxKxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -84,7 +88,7 @@ datasets = [
     },
     {
         'name': 'softmax',
-        'report_file': '/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls',
+        'report_file': f"{AI_BENCHMARK_DIR}/build/report.xls",
         'usecols': [
             'shape (RxCxRUN_COUNT)', 'gcc_T1', 'zcc_T1', 'triton_T1',
             'gcc_T4', 'zcc_T4', 'triton_T4',
@@ -187,24 +191,28 @@ def plot(data_frame, kernel_name, kernel_shape, kernel_xaixs, modulo=3):
 
 # Iterate through each dataset configuration
 for dataset in datasets:
-    # Read and process data
-    data = pd.read_csv(
-        dataset['report_file'],
-        header=0,
-        comment='#',
-        usecols=dataset['usecols'],
-        skip_blank_lines=True,
-        sep='\t',
-        nrows=dataset['nrows']
-    )
+    try:
+        # Read and process data
+        data = pd.read_csv(
+            dataset['report_file'],
+            header=0,
+            comment='#',
+            usecols=dataset['usecols'],
+            skip_blank_lines=True,
+            sep='\t',
+            nrows=dataset['nrows']
+        )
 
-    # Apply any data processing steps if necessary
-    df = data.iloc[::2]  # Selecting every other row
+        # Apply any data processing steps if necessary
+        df = data.iloc[::2]  # Selecting every other row
 
-    # Plot data
-    plot(
-        df,
-        dataset['name'],
-        dataset['shape_label'],
-        dataset.get('xaxis')
-    )
+        # Plot data
+        plot(
+            df,
+            dataset['name'],
+            dataset['shape_label'],
+            dataset.get('xaxis')
+        )
+    except (ValueError, KeyError) as e:
+        print(f"Skipping {dataset['name']} - columns not found in file")
+        continue

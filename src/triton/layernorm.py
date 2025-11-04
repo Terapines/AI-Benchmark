@@ -37,7 +37,9 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 
 def get_layer_norm_fwd_fused_autotune_config():
@@ -305,12 +307,12 @@ class LayerNorm(torch.autograd.Function):
 
 
 layer_norm = LayerNorm.apply
-device = 'cpu'
+device = DEVICE
 # Torch doesn't support operations in float16 on CPU so use float32 instead
 dtype = torch.float32 if device == 'cpu' else torch.float16
 
 
-def test_layer_norm(M, N, dtype, eps=1e-5, device='cpu'):
+def test_layer_norm(M, N, dtype, eps=1e-5, device=DEVICE):
     # create data
     x_shape = (M, N)
     w_shape = (x_shape[-1], )

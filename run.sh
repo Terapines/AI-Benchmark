@@ -4,9 +4,18 @@ MODE="Accuracy"
 
 DIR=`dirname $0`
 
+# Source configuration file
+source ${DIR}/config.sh
+
 BENCHMARK=${DIR}/bin/
 
 THREAD=(1 4 8)
+
+# FIXME: We have scp llvm-riscv-install into riscv hardware, so we need to set
+# the LD_LIBRARY_PATH to the correct path, so that the program can find the
+# correct libmlir_c_runner_utils.so and libmlir_float16_utils.so when running
+# the program. Maybe we can find a better way to deal with this case.
+export LD_LIBRARY_PATH=${REMOTE_PATH}/ztc-mlir-lib:$LD_LIBRARY_PATH
 
 # COMPILER=`ls ${BENCHMARK}`
 COMPILER=(triton gcc zcc)

@@ -2,19 +2,22 @@ import pandas as pd
 
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 
 #############################################################################
 ######        Only supports tuning one kernel once a time             #######
 ######        Need config report file path                            #######
 #############################################################################
+# Get the AI-Benchmark directory
+AI_BENCHMARK_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Define the list of plot configurations
 plot_configs = [
-    {"kernel_name": "correlation", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
-    {"kernel_name": "layernorm", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
-    {"kernel_name": "softmax", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
-    {"kernel_name": "matmul", "tuning_param": "BLOCK_SIZE", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
-    {"kernel_name": "resize", "tuning_param": "BLOCK_SIZE_H x BLOCK_SIZE_W", "report_file":"/home/crux/workspace/AI-Kernel-Library/Benchmark/build/report.xls"},
+    {"kernel_name": "correlation", "tuning_param": "BLOCK_SIZE", "report_file":f"{AI_BENCHMARK_DIR}/build/report.xls"},
+    {"kernel_name": "layernorm", "tuning_param": "BLOCK_SIZE", "report_file":f"{AI_BENCHMARK_DIR}/build/report.xls"},
+    {"kernel_name": "softmax", "tuning_param": "BLOCK_SIZE", "report_file":f"{AI_BENCHMARK_DIR}/build/report.xls"},
+    {"kernel_name": "matmul", "tuning_param": "BLOCK_SIZE", "report_file":f"{AI_BENCHMARK_DIR}/build/report.xls"},
+    {"kernel_name": "resize", "tuning_param": "BLOCK_SIZE_H x BLOCK_SIZE_W", "report_file":f"{AI_BENCHMARK_DIR}/build/report.xls"},
 ]
 
 

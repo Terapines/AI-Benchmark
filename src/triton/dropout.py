@@ -5,7 +5,9 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 def get_dropout_kernel_autotune_config():
     configs = [

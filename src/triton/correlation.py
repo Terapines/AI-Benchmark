@@ -6,7 +6,9 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 def get_correlation_kernel_autotune_config():
     configs = [
@@ -65,7 +67,7 @@ def correlation_kernel(
 
 
     # Create a mask to guard memory operations against out-of-bounds accesses.
-    bound_mask = ((height_idx[:, None] < height) & (width_idx[None, :] < width)) & (width_idx[None, :] >= pid_z)
+    bound_mask = ((height_idx[:, None] < height) & (width_idx[None, :] < width)) & (width_idx[None, :] - pid_z >= 0)
     # channel_mask = width_idx[None, :] >= pid
 
     offsets = (height_idx[:, None] * width) + width_idx[None, :]
@@ -117,7 +119,9 @@ def correlation(src0_arr, src1_arr, out_arr, out_shift):
 # Unit Test
 # ---------
 #
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 IN_C = 58
 OUT_C = 5
@@ -128,9 +132,9 @@ RUN_COUNT=100
 IN_SIZE = IN_C * H * W
 OUT_SIZE = OUT_C * H * W
 
-src0_arr_global = torch.ones((IN_SIZE), dtype=torch.int8, device='cpu')
-src1_arr_global = torch.ones((IN_SIZE), dtype=torch.int8, device='cpu')
-out_arr_global = torch.zeros((OUT_C, H, W), dtype=torch.int8, device='cpu')
+src0_arr_global = torch.ones((IN_SIZE), dtype=torch.int8, device=DEVICE)
+src1_arr_global = torch.ones((IN_SIZE), dtype=torch.int8, device=DEVICE)
+out_arr_global = torch.zeros((OUT_C, H, W), dtype=torch.int8, device=DEVICE)
 
 for i in range(IN_SIZE):
     src0_arr_global[i] = i % 16

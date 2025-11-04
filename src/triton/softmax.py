@@ -173,8 +173,10 @@ def softmax(x, y=None):
 # We make sure that we test our kernel on a matrix with an irregular number of rows and columns.
 # This will allow us to verify that our padding mechanism works.
 
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 torch.manual_seed(0)
-x = torch.randn(1823, 781, device='cpu')
+x = torch.randn(1823, 781, device=DEVICE
 y_triton_cpu = softmax(x)
