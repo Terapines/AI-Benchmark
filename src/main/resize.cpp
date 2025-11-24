@@ -79,7 +79,10 @@ int main(int argc, char *argv[])
     std::chrono::high_resolution_clock::time_point begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
     {
-        resize_kernel_omp(gridX, gridY, gridZ, &resize_kernel, input, real_out, C, H, W);
+        resize_kernel_omp(gridX, gridY, gridZ,
+                          (uint64_t)input, (void*)input,
+                          (uint64_t)real_out, (void*)real_out,
+                          C, H, W, &resize_kernel);
     }
     std::chrono::high_resolution_clock::time_point end = std::chrono::high_resolution_clock::now();
     std::chrono::milliseconds time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);
@@ -125,4 +128,3 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-

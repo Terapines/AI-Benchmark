@@ -178,5 +178,5 @@ from triton.backends.riscv.driver import CrossDriver
 DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 torch.manual_seed(0)
-x = torch.randn(1823, 781, device=DEVICE
+x = torch.randn(1823, 781, device=DEVICE)
 y_triton_cpu = softmax(x)

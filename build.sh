@@ -90,7 +90,8 @@ build_triton_kernel_lib() {
 
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
-    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${KERNEL_AUX_FILE_DIR}/*.llir
+    # Also remove captures(none) attributes for RISC-V compatibility
+    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g; s/\s*captures(none)//g' ${KERNEL_AUX_FILE_DIR}/*.llir
 
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
