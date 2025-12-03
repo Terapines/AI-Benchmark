@@ -21,10 +21,10 @@ C_KERNELS=(
   # ${SRC_DIR}/c/correlation.cpp
   # ${SRC_DIR}/c/layernorm.cpp
   # ${SRC_DIR}/c/matmul.cpp
-   ${SRC_DIR}/c/softmax.cpp
+  # ${SRC_DIR}/c/softmax.cpp
   # ${SRC_DIR}/c/rope.cpp
   # ${SRC_DIR}/c/dropout.cpp
-  # ${SRC_DIR}/c/resize.cpp
+  ${SRC_DIR}/c/resize.cpp
   # ${SRC_DIR}/c/warp.cpp
 )
 
@@ -33,10 +33,10 @@ TRITON_KERNELS=(
   # ${SRC_DIR}/triton/correlation.py
   # ${SRC_DIR}/triton/layernorm.py
   # ${SRC_DIR}/triton/matmul.py
-   ${SRC_DIR}/triton/softmax.py
+  # ${SRC_DIR}/triton/softmax.py
   # ${SRC_DIR}/triton/rope.py
   # ${SRC_DIR}/triton/dropout.py
-  # ${SRC_DIR}/triton/resize.py
+  ${SRC_DIR}/triton/resize.py
   # ${SRC_DIR}/triton/warp.py
 )
 
@@ -45,10 +45,10 @@ DRIVERS=(
   # ${SRC_DIR}/main/correlation.cpp
   # ${SRC_DIR}/main/layernorm.cpp
   # ${SRC_DIR}/main/matmul.cpp
-   ${SRC_DIR}/main/softmax_kernel.cpp
+  # ${SRC_DIR}/main/softmax_kernel.cpp
   # ${SRC_DIR}/main/rope.cpp
   # ${SRC_DIR}/main/dropout.cpp
-  # ${SRC_DIR}/main/resize.cpp
+  ${SRC_DIR}/main/resize.cpp
   # ${SRC_DIR}/main/warp.cpp
 )
 
@@ -123,10 +123,7 @@ build_driver(){
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    echo "------------run here error----------------"
-    echo "${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_c.elf"
     ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_c.elf
-    echo "${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_triton.elf"
     ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_triton.elf
     # Data shape config
     cp ${SRC_DIR}/main/${name}.cfg  ${KERNEL_BIN_DIR}
@@ -156,7 +153,6 @@ run(){
 
     for shape in ${SHAPE[@]}; do
       DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=1 ${kernel_dir}/${kernel_name}_c.elf ${shape}
-      echo "DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=1 ${kernel_dir}/${kernel_name}_triton.elf ${shape}"
       DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=1 ${kernel_dir}/${kernel_name}_triton.elf ${shape}
     done
   done
