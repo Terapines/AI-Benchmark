@@ -30,7 +30,11 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 # Array of "c_kernel triton_kernel driver_path" entries
 # FIXME: Need add more test cases
 drivers=(
-  "${SRC_DIR}/c/matmul.cpp ${SRC_DIR}/triton/matmul.py ${SRC_DIR}/main/matmul.cpp"
+  #"${SRC_DIR}/c/matmul.cpp ${SRC_DIR}/triton/matmul.py ${SRC_DIR}/main/matmul.cpp"
+  "${SRC_DIR}/c/softmax.cpp ${SRC_DIR}/triton/softmax.py ${SRC_DIR}/main/softmax_kernel.cpp"
+  #"${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
+  #"${SRC_DIR}/c/dropout.cpp ${SRC_DIR}/triton/dropout.py ${SRC_DIR}/main/dropout.cpp"
+  #"${SRC_DIR}/c/layernorm.cpp ${SRC_DIR}/triton/layernorm.py ${SRC_DIR}/main/layernorm.cpp"
 )
 
 # Default clean build directory
@@ -67,7 +71,19 @@ build_c_kernel_lib() {
     name=`basename ${kernel} .cpp`
     echo ${kernel}
     # FIXME: Maybe need find a good way to use -fopenmp
-    ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -lgomp -o ${OBJ_DIR}/${name}.o
+    if [[ "${COMPILER}" == *"zcc"* ]]; then
+      # For zcc: split into two steps
+      # Step 1: Generate .ll file from .cpp
+      ${COMPILER} -fPIC -I ${DIR}/include -emit-llvm -S ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.ll
+      echo "${COMPILER} -fPIC -I ${DIR}/include -emit-llvm -S ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.ll"
+      # Step 2: Generate .o file from .ll
+      ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.o
+    else
+      # For other compilers (e.g., gcc): single step
+      ${COMPILER} -fPIC -I ${DIR}/include -S ${kernel} -fopenmp -lgomp -o ${OBJ_DIR}/${name}.s
+      ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fopenmp -lgomp -o ${OBJ_DIR}/${name}.o
+      echo "${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fopenmp -lgomp -o ${OBJ_DIR}/${name}.o"
+    fi
   done
 
   find ${OBJ_DIR} -not -name "support.o" -name "*.o" | xargs ${AR} rcs ${LIB_DIR}/libkernel.a
@@ -87,6 +103,7 @@ build_triton_kernel_lib() {
     # compile triton kernel: .py --> .llir + launcher.cpp
     # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
     KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} RUN_RISC_V=${RUN_RISC_V} ${PYC} ${kernel}
+    echo "KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} RUN_RISC_V=${RUN_RISC_V} ${PYC} ${kernel}"
 
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
@@ -100,7 +117,7 @@ build_triton_kernel_lib() {
       # llc -march=riscv64 -mattr=+d,v  ${kernel_ir} -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
       # z++ -march=rv64gcv -fno-lto --target=riscv64-unknown-linux-gnu -S -x ir  -O2 ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
 
-      ${COMPILER} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+      ${COMPILER} -O3 -S -x ir ${kernel_ir} -fopenmp=libomp -mllvm --riscv-disable-rvv-fixedlen=false -mllvm --riscv-disable-gather -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
 
       ${COMPILER} -c -o ${OBJ_DIR}/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
     done
@@ -109,7 +126,7 @@ build_triton_kernel_lib() {
     for kernel_launcher in ${KERNEL_AUX_FILE_DIR}/*.cpp; do
       launcher_name=`basename ${kernel_launcher} .cpp`
       # FIXME: Maybe need find a good way to use -fopenmp
-      ${COMPILER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -c ${kernel_launcher} -lgomp -o ${OBJ_DIR}/${launcher_name}.o
+      ${COMPILER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -c -flto ${kernel_launcher} -fopenmp=libomp -o ${OBJ_DIR}/${launcher_name}.o
     done
 
   done
@@ -182,8 +199,13 @@ build_driver(){
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
     # FIXME:lmlir_c_runner_utils is for memrefcopy function in ztc, maybe we need to remove it in the future
-    ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lgomp -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
-
+    if [[ "${COMPILER}" == *"zcc"* ]]; then
+      ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+    elif [[ "${COMPILER}" == *"gcc"* ]]; then
+      ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fopenmp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lgomp -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+    else
+      echo "wrong compiler"
+    fi
     # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${name}.elf &> ${KERNEL_BIN_DIR}/${name}.elf.s
 
     # Data shape config
@@ -283,6 +305,7 @@ done
 if [ "x$DO_CLEAN" = "x--clean" ]; then
     echo "Cleaning build directories"
     rm -rf $BUILD_DIR
+    rm -rf ~/.triton
 fi
 
 ### TODO: Options for build function

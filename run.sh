@@ -42,6 +42,7 @@ for compiler in ${COMPILER[@]}; do
           echo ${kernel}
           tmp=`basename ${kernel} .elf`
           block_shape=${tmp#*_}
+          echo "DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=${thread} ${kernel} ${shape} 2> ${kernel_dir}/${tmp}_T${thread}_S${shape}.log"
           DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=${thread} ${kernel} ${shape} 2> ${kernel_dir}/${tmp}_T${thread}_S${shape}.log
         done
       done

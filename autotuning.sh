@@ -3,6 +3,8 @@
 DIR=$(cd "$(dirname "$0")"; pwd)
 echo ${DIR}
 
+source ${DIR}/config.sh
+
 SRC_DIR=${DIR}/src
 BUILD_DIR=${DIR}/build
 
@@ -12,18 +14,15 @@ MODE="Accuracy"
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
 
-# C compile env
-ARCH=rv64gcv_zvl256b
-ABI=lp64d
-
-ZCC="z++ -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3"
-AR="llvm-ar"
 # OBJDUMP="llvm-objdump"
 
 # Python virtual environment for triton kernel compilation
 PYC="python"
-TRITON_PLUGIN_DIRS=~/workspace/AI-Kernel-Library/triton-cpu/
+TRITON_PLUGIN_DIRS="${TRITON_PLUGIN_DIRS:-${HOME}/workspace/ztc/}"
 TRITON_PYTHON_VENV=${TRITON_PLUGIN_DIRS}/.venv
+
+# Add ztc module to the PYTHONPATH, so that python can import ztc plugins
+export PYTHONPATH=${TRITON_PLUGIN_DIRS}/python:${PYTHONPATH}
 
 KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include/
 
@@ -39,15 +38,15 @@ DO_CLEAN="--clean"
 
 # Array of "kernel_path driver_path tunning_arg" entries
 drivers=(
-  "triton/layernorm.py main/layernorm.cpp _layer_norm_fwd_fused"
-  "triton/layernorm.py main/layernorm.cpp _layer_norm_bwd_fused"
-  "triton/correlation.py main/correlation.cpp correlation_kernel"
-  "triton/softmax.py main/softmax_kernel.cpp softmax_kernel"
+  #"triton/layernorm.py main/layernorm.cpp _layer_norm_fwd_fused"
+  #"triton/layernorm.py main/layernorm.cpp _layer_norm_bwd_fused"
+  #"triton/correlation.py main/correlation.cpp correlation_kernel"
+  #"triton/softmax.py main/softmax_kernel.cpp softmax_kernel"
   "triton/matmul.py main/matmul.cpp matmul_kernel"
-  "triton/rope.py main/rope.cpp rope_kernel"
-  "triton/dropout.py main/dropout.cpp dropout_kernel"
-  "triton/resize.py main/resize.cpp resize_kernel"
-  "triton/warp.py main/warp.cpp warp_kernel"
+  #"triton/rope.py main/rope.cpp rope_kernel"
+  #"triton/dropout.py main/dropout.cpp dropout_kernel"
+  #"triton/resize.py main/resize.cpp resize_kernel"
+  #"triton/warp.py main/warp.cpp warp_kernel"
 )
 
 
@@ -106,7 +105,9 @@ build_triton_driver() {
   # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
   ### FIXME: How to specify which kernel to enable among multiple kernels, and whether to enable them simultaneously
   ### Two parameters may be needed to control, one parameter controls ENABLE, and the other parameter controls which ENABLE.
-  ENABLE_AUTOTUNING=$1 KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${TRITON_KERNEL}
+  ENABLE_AUTOTUNING=$1 KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} RUN_RISC_V=${RUN_RISC_V} ${PYC} ${TRITON_KERNEL}
+  echo "ENABLE_AUTOTUNING=$1 KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} RUN_RISC_V=${RUN_RISC_V} ${PYC} ${TRITON_KERNEL}"
+
 
   driver_name=`basename ${DRIVER} .cpp`
   echo ${DRIVER}
@@ -134,10 +135,12 @@ build_triton_driver() {
 
     echo "----------${tunning_dir}-------------"
     block_shape=${tunning_dir#*$1_}
+    echo "${block_shape}"
     mkdir -p ${OBJ_DIR}/${name}_$1_${block_shape}
+    echo "mkdir -p ${OBJ_DIR}/${name}_$1_${block_shape}"
 
     # soft link common kernel llir file
-    find "${KERNEL_AUX_FILE_DIR}" -maxdepth 1 -type f -exec ln -s {} "${tunning_dir}" \;
+    # find "${KERNEL_AUX_FILE_DIR}" -maxdepth 1 -type f -exec ln -s {} "${tunning_dir}" \;
 
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
@@ -148,14 +151,15 @@ build_triton_driver() {
       kernel_name=`basename ${kernel_ir} .llir`
       echo ${kernel_ir}
 
-      ${ZCC} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}_${block_shape}/${kernel_name}.s
+      ${COMPILER} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -fopenmp=libomp -I${MLIR_INCLUDE_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -o ${KERNEL_AUX_FILE_DIR}_${block_shape}/${kernel_name}.s
 
-      ${ZCC} -c -o ${OBJ_DIR}/${name}_$1_${block_shape}/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}_${block_shape}/${kernel_name}.s
+      ${COMPILER} -c -o ${OBJ_DIR}/${name}_$1_${block_shape}/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}_${block_shape}/${kernel_name}.s
     done
 
     for kernel_launcher in ${tunning_dir}/*.cpp; do
       launcher_name=`basename ${kernel_launcher} .cpp`
-      ${ZCC} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -c ${kernel_launcher} -fopenmp -o ${OBJ_DIR}/${name}_$1_${block_shape}/${launcher_name}.o
+      ${COMPILER} -I ${DIR}/include -I${KERNEL_LAUNCHER_INCLUDE_DIR} -I${MLIR_INCLUDE_DIR} -fopenmp=libomp -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -c ${kernel_launcher} -o ${OBJ_DIR}/${name}_$1_${block_shape}/${launcher_name}.o
+      echo "${COMPILER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -I${MLIR_INCLUDE_DIR} -fopenmp=libomp -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -c ${kernel_launcher} -o ${OBJ_DIR}/${name}_$1_${block_shape}/${launcher_name}.o"
     done
 
 
@@ -164,7 +168,7 @@ build_triton_driver() {
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
     # Always check accurary
-    ${COMPILER} ${DRIVER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel_$1_${block_shape} -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -DCHECK_ACCURACY -fPIC -o ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf
+    ${COMPILER} ${DRIVER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${LIB_DIR} -fopenmp=libomp -lkernel_$1_${block_shape} -lstdc++ -lm -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf
 
     # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf &> ${KERNEL_BIN_DIR}/${driver_name}_$1_${block_shape}.elf.s
 
@@ -214,6 +218,8 @@ if [ "x$DO_CLEAN" = "x--clean" ]; then
     rm -rf $LIB_DIR
     rm -rf $OBJ_DIR
     rm -rf ${BUILD_DIR}/aux/
+    rm -rf ${BUILD_DIR}
+    rm -rf ~/.triton
 fi
 
 create_dir_hierarchy

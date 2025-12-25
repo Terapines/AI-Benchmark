@@ -50,6 +50,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef CHECK_ACCURACY
   std::string DB = getDB(argv[1]);
+  printf("DB: %s\n", DB.c_str());
   FILE *file = fopen(DB.c_str(), "rb");
   if (file) {
     printf("File %s open for read\n", DB.c_str());
@@ -61,6 +62,7 @@ int main(int argc, char *argv[]) {
 #endif
     // Will be used to obtain a seed for the random number engine
     std::random_device rd;
+    printf("------------code will come here ------------\n");
     std::mt19937 gen(rd()); // Standard mersenne_twister_engine seeded with rd()
     std::normal_distribution<> norm_dis(0, 1);
     for (int i = 0; i < M; ++i) {
@@ -119,6 +121,7 @@ int main(int argc, char *argv[]) {
 
 #ifdef CHECK_ACCURACY
   if (file == nullptr) {
+    printf("------------code will come here to get DB data------------\n");
     file = fopen(DB.c_str(), "wb");
 
     printf("File %s open for write\n", DB.c_str());

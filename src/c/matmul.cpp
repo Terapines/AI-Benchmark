@@ -30,9 +30,9 @@ num_threads(max_threads.value())
     int i_end = std::min(M, i + BLOCK_SIZE_M);
     for (int j = 0; j < N; j += BLOCK_SIZE_N) {
       int j_end = std::min(N, j + BLOCK_SIZE_N);
-#pragma omp simd
-      for (int kk = 0; kk < K; ++kk) {
-        for (int ii = i; ii < i_end; ++ii) {
+      for (int ii = i; ii < i_end; ++ii) {
+        for (int kk = 0; kk < K; ++kk) {
+          #pragma omp simd
           for (int jj = j; jj < j_end; ++jj) {
             arg2[ii * N + jj] += arg0[ii * K + kk] * arg1[kk * N + jj];
           }
