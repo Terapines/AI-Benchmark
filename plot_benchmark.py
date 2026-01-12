@@ -204,7 +204,7 @@ for dataset in datasets:
         )
 
         # Apply any data processing steps if necessary
-        df = data.iloc[::2]  # Selecting every other row
+        df = data  # Selecting every other row
 
         # Plot data
         plot(

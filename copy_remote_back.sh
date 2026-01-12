@@ -10,3 +10,5 @@ BUILD_DIR=${DIR}/build/
 
 
 scp -r ${REMOTE}/bin/ ${BUILD_DIR}/
+
+./report.sh

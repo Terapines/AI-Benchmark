@@ -3,7 +3,8 @@
 # Users can override these values by setting environment variables before sourcing this file
 
 # Compiler flags
-ARCH="${ARCH:-rv64gcv_zvl256b}"
+# FIXME: Softmax kernel need without _zvl256b
+ARCH="${ARCH:-rv64gcv}"
 ABI="${ABI:-lp64d}"
 
 # Compiler paths

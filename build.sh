@@ -35,6 +35,7 @@ drivers=(
   #"${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
   #"${SRC_DIR}/c/dropout.cpp ${SRC_DIR}/triton/dropout.py ${SRC_DIR}/main/dropout.cpp"
   #"${SRC_DIR}/c/layernorm.cpp ${SRC_DIR}/triton/layernorm.py ${SRC_DIR}/main/layernorm.cpp"
+  #"${SRC_DIR}/c/resize.cpp ${SRC_DIR}/triton/resize.py ${SRC_DIR}/main/resize.cpp"
 )
 
 # Default clean build directory
@@ -74,10 +75,12 @@ build_c_kernel_lib() {
     if [[ "${COMPILER}" == *"zcc"* ]]; then
       # For zcc: split into two steps
       # Step 1: Generate .ll file from .cpp
-      ${COMPILER} -fPIC -I ${DIR}/include -emit-llvm -S ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.ll
+      ${COMPILER} -fPIC -I ${DIR}/include -emit-llvm -S ${kernel} -fno-unroll-loops -fopenmp=libomp -o ${OBJ_DIR}/${name}.ll
       echo "${COMPILER} -fPIC -I ${DIR}/include -emit-llvm -S ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.ll"
+      ${COMPILER} -fPIC -I ${DIR}/include -S ${kernel} -fno-unroll-loops -fopenmp=libomp -o ${OBJ_DIR}/${name}.s
+      echo "${COMPILER} -fPIC -I ${DIR}/include -S ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.s"
       # Step 2: Generate .o file from .ll
-      ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fopenmp=libomp -o ${OBJ_DIR}/${name}.o
+      ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fno-unroll-loops -fopenmp=libomp -o ${OBJ_DIR}/${name}.o
     else
       # For other compilers (e.g., gcc): single step
       ${COMPILER} -fPIC -I ${DIR}/include -S ${kernel} -fopenmp -lgomp -o ${OBJ_DIR}/${name}.s
@@ -130,6 +133,12 @@ build_triton_kernel_lib() {
     done
 
   done
+
+  # # 添加：如果存在手写的 softmax_kernel.s 文件，将其编译并添加到库中
+  # if [ -f "/home/xinyi/workspace/AI-Benchmark/softmax_kernel.s" ]; then
+  #   echo "Found custom softmax_kernel.s, compiling and adding to libkernel.a"
+  #   ${COMPILER} -c -o ${OBJ_DIR}/softmax_kernel.o /home/xinyi/workspace/AI-Benchmark/softmax_kernel.s
+  # fi
 
   find ${OBJ_DIR} -not -name "support.o" -name "*.o" | xargs ${AR} rcs ${BUILD_DIR}/lib/triton/libkernel.a
 }
@@ -200,7 +209,8 @@ build_driver(){
     # .elf suffix to avoid scp problem(same name dir and kernel)
     # FIXME:lmlir_c_runner_utils is for memrefcopy function in ztc, maybe we need to remove it in the future
     if [[ "${COMPILER}" == *"zcc"* ]]; then
-      ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+      echo "${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fno-unroll-loops -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf"
+      ${COMPILER} ./softmax_kernel_copy.s ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fno-unroll-loops -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
     elif [[ "${COMPILER}" == *"gcc"* ]]; then
       ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fopenmp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lgomp -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
     else
