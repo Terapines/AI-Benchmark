@@ -20,12 +20,11 @@ bool check_tensor(T *a, T *b, int n, const char *label) {
   for (int i = 0; i < n; i++) {
 
     if (std::abs(a[i] - b[i]) > 1e-4) {
-      // printf("Mismatch at %d: %f != %f\n", i, a[i], b[i]);
       ok = false;
       if (j++ < 32) {
-        std::cout << i << " : " << a[i] << " vs " << b[i] << std::endl;
+        // Convert to int for proper numeric display (especially for int8_t)
+        std::cout << i << " : " << static_cast<int>(a[i]) << " vs " << static_cast<int>(b[i]) << std::endl;
       }
-      // break;
     }
   }
   std::string ACC = ok ? "OK" : "NOT OK";

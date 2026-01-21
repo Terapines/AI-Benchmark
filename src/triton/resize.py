@@ -65,19 +65,15 @@ def resize_kernel(
     src_ptrs1 = src_ptr + src_offset + y1 * width
     out_ptrs =  out_ptr + (pid_c * dst_height * dst_width + h_idx * dst_width)
 
-    for off in range(0, width * 2, BLOCK_SIZE_W):
-        w_idx = off + tl.arange(0, BLOCK_SIZE_W) # [1, BLOCK_SIZE_W]
-
-        mask = (w_idx < dst_width)
-
+    for w_idx in range(dst_width):
         input_x = w_idx << (hw_fl - 1)
         x0 = input_x >> hw_fl
-        y0x0 = tl.load(src_ptrs0 + x0, mask=mask, other=0).to(tl.int16)
-        y1x0 = tl.load(src_ptrs1 + x0, mask=mask, other=0).to(tl.int16)
+        y0x0 = tl.load(src_ptrs0 + x0).to(tl.int16)
+        y1x0 = tl.load(src_ptrs1 + x0).to(tl.int16)
 
         x1 = tl.minimum(x0 + 1, width - 1)
-        y0x1 = tl.load(src_ptrs0 + x1, mask=mask, other=0).to(tl.int16)
-        y1x1 = tl.load(src_ptrs1 + x1, mask=mask, other=0).to(tl.int16)
+        y0x1 = tl.load(src_ptrs0 + x1).to(tl.int16)
+        y1x1 = tl.load(src_ptrs1 + x1).to(tl.int16)
 
         w1_lambda = input_x - (x0 << hw_fl)
         w0_lambda = factor - w1_lambda
@@ -87,7 +83,7 @@ def resize_kernel(
 
         sum = sum.to(tl.int8)
 
-        tl.store(out_ptrs + w_idx, sum, mask=mask)
+        tl.store(out_ptrs + w_idx, sum)
 
 
 def resize(src_arr, out_arr):
