@@ -43,7 +43,7 @@ for compiler in ${COMPILER[@]}; do
           tmp=`basename ${kernel} .elf`
           block_shape=${tmp#*_}
           # Use perf stat to collect performance data
-          export DB_FILE=${DIR}/${kernel_name};export TRITON_CPU_MAX_THREADS=${thread}; perf stat ${kernel} ${shape} > ${kernel_dir}/${tmp}_T${thread}_S${shape}.log 2>&1
+          export DB_FILE=${DIR}/${kernel_name};export TRITON_CPU_MAX_THREADS=${thread}; perf stat ${kernel} ${shape}
         done
       done
     done

@@ -11,44 +11,43 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 
 TX8_DEPS_ROOT="/share/rd/合作项目/清微智能/tx8_deps"
 export TX8_DEPS_ROOT=$TX8_DEPS_ROOT
-
 PYC="python"
 
-ZCC="clang++-18 -g -std=c++17 -fno-lto -fvectorize -fslp-vectorize -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -I${HOME}/workspace/llvm-project-for-ztc/install/include/mlir"
+ZCC="clang++-18 -g -std=c++17 -fno-lto -fvectorize -fslp-vectorize -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -I/home/xinyi/workspace/llvm-project-for-ztc/install/include/mlir"
 AR="llvm-ar-18"
 
 C_KERNELS=(
-  # ${SRC_DIR}/c/correlation.cpp
+   ${SRC_DIR}/c/correlation.cpp
   # ${SRC_DIR}/c/layernorm.cpp
   # ${SRC_DIR}/c/matmul.cpp
-  # ${SRC_DIR}/c/softmax.cpp
+  #${SRC_DIR}/c/softmax.cpp
   # ${SRC_DIR}/c/rope.cpp
-  # ${SRC_DIR}/c/dropout.cpp
-  ${SRC_DIR}/c/resize.cpp
+  #  ${SRC_DIR}/c/dropout.cpp
+  # ${SRC_DIR}/c/resize.cpp
   # ${SRC_DIR}/c/warp.cpp
 )
 
 # TRITON_KERNELS=`ls ${SRC_DIR}/triton/*.py`
 TRITON_KERNELS=(
-  # ${SRC_DIR}/triton/correlation.py
+   ${SRC_DIR}/triton/correlation.py
   # ${SRC_DIR}/triton/layernorm.py
   # ${SRC_DIR}/triton/matmul.py
-  # ${SRC_DIR}/triton/softmax.py
+  #${SRC_DIR}/triton/softmax.py
   # ${SRC_DIR}/triton/rope.py
-  # ${SRC_DIR}/triton/dropout.py
-  ${SRC_DIR}/triton/resize.py
+  #  ${SRC_DIR}/triton/dropout.py
+  # ${SRC_DIR}/triton/resize.py
   # ${SRC_DIR}/triton/warp.py
 )
 
 # DRIVERS=`ls ${SRC_DIR}/main/*.cpp`
 DRIVERS=(
-  # ${SRC_DIR}/main/correlation.cpp
+   ${SRC_DIR}/main/correlation.cpp
   # ${SRC_DIR}/main/layernorm.cpp
   # ${SRC_DIR}/main/matmul.cpp
-  # ${SRC_DIR}/main/softmax_kernel.cpp
+  #${SRC_DIR}/main/softmax_kernel.cpp
   # ${SRC_DIR}/main/rope.cpp
   # ${SRC_DIR}/main/dropout.cpp
-  ${SRC_DIR}/main/resize.cpp
+  # ${SRC_DIR}/main/resize.cpp
   # ${SRC_DIR}/main/warp.cpp
 )
 
@@ -70,16 +69,15 @@ build_c_kernel_lib() {
 # build triton kernel
 build_triton_kernel_lib() {
   # Python virtual environment for triton kernel compilation
-  TRITON_DIR=${HOME}/workspace/ztc
+  TRITON_DIR=/home/xinyi/workspace/ztc
   TRITON_PLUGIN_DIRS=${TRITON_DIR}/python
   TRITON_PYTHON_VENV=${TRITON_DIR}/.venv
   source ${TRITON_PYTHON_VENV}/bin/activate
   export PYTHONPATH=${TRITON_DIR}/python:${PYTHONPATH}
   export TRITON_OPT_PATH=$TRITON_DIR/python/build/cmake.linux-x86_64-cpython-3.12/bin/triton-opt
-  export LLVM_BINARY_DIR=${HOME}/workspace/llvm-project-for-ztc/build/bin
+  export LLVM_BINARY_DIR=/home/xinyi/workspace/llvm-project-for-ztc/build/bin
   export TRITON_DUMP_PATH=$TRITON_DIR/dump
   export TRITON_ALWAYS_COMPILE=1
-
   for kernel in ${TRITON_KERNELS[@]}; do
     name=`basename ${kernel} .py`
 
@@ -89,7 +87,8 @@ build_triton_kernel_lib() {
 
     echo ${kernel}
     # compile triton kernel: .py --> .llir + launcher.cpp
-    USE_SIM_MODE=true RUN_RISC_V=true KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
+    USE_SIM_MODE=true RUN_RISC_V=1 KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
+
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
       kernel_name=`basename ${kernel_ir} .llir`
@@ -123,8 +122,8 @@ build_driver(){
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_c.elf
-    ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L${HOME}/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_triton.elf
+    ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L/home/xinyi/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DC_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_c.elf
+    ${ZCC} -O3 ${main} -DCHECK_ACCURACY -L/home/xinyi/workspace/llvm-project-for-ztc/install/lib -lmlir_c_runner_utils -lmlir_float16_utils -L ${BUILD_DIR}/lib -fopenmp -lckernel -ltritonkernel -lsupport -fPIC -DTRITON_KERNEL_ENABLE -o ${KERNEL_BIN_DIR}/${name}_triton.elf
     # Data shape config
     cp ${SRC_DIR}/main/${name}.cfg  ${KERNEL_BIN_DIR}
   done
@@ -152,8 +151,10 @@ run(){
     echo ${SHAPE[*]}
 
     for shape in ${SHAPE[@]}; do
-      DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=1 ${kernel_dir}/${kernel_name}_c.elf ${shape}
-      DB_FILE=${DIR}/${kernel_name} TRITON_CPU_MAX_THREADS=1 ${kernel_dir}/${kernel_name}_triton.elf ${shape}
+      echo "DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_c.elf ${shape}"
+      echo "DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_triton.elf ${shape}"
+      DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_c.elf ${shape}
+      DB_FILE=${DIR}/${kernel_name} ${kernel_dir}/${kernel_name}_triton.elf ${shape}
     done
   done
 }

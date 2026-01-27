@@ -8,7 +8,7 @@ BENCHMARK=${DIR}/build/bin
 
 REPORT_FILE=${DIR}/build/report.xls
 
-MODE="Benchmark"
+MODE="Accuracy"
 
 ARCH=rv64gcv
 ABI=lp64d

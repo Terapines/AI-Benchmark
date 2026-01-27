@@ -32,10 +32,12 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 drivers=(
   #"${SRC_DIR}/c/matmul.cpp ${SRC_DIR}/triton/matmul.py ${SRC_DIR}/main/matmul.cpp"
   #"${SRC_DIR}/c/softmax.cpp ${SRC_DIR}/triton/softmax.py ${SRC_DIR}/main/softmax_kernel.cpp"
-  #"${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
+  "${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
   #"${SRC_DIR}/c/dropout.cpp ${SRC_DIR}/triton/dropout.py ${SRC_DIR}/main/dropout.cpp"
   #"${SRC_DIR}/c/layernorm.cpp ${SRC_DIR}/triton/layernorm.py ${SRC_DIR}/main/layernorm.cpp"
-  "${SRC_DIR}/c/resize.cpp ${SRC_DIR}/triton/resize.py ${SRC_DIR}/main/resize.cpp"
+  #"${SRC_DIR}/c/resize.cpp ${SRC_DIR}/triton/resize.py ${SRC_DIR}/main/resize.cpp"
+  #"${SRC_DIR}/c/rope.cpp ${SRC_DIR}/triton/rope.py ${SRC_DIR}/main/rope.cpp"
+  #"${SRC_DIR/c/warp.cpp ${SRC_DIR}/triton/warp.py ${SRC_DIR}/main/warp.cpp"
 )
 
 # Default clean build directory
@@ -211,7 +213,7 @@ build_driver(){
     # FIXME:lmlir_c_runner_utils is for memrefcopy function in ztc, maybe we need to remove it in the future
     if [[ "${COMPILER}" == *"zcc"* ]]; then
       echo "${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fno-unroll-loops -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf"
-      ${COMPILER} /home/xinyi/workspace/AI-Benchmark/resize-kernel.s ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fno-unroll-loops -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+      ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fno-unroll-loops -fopenmp=libomp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
     elif [[ "${COMPILER}" == *"gcc"* ]]; then
       ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -fopenmp -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lkernel -lgomp -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
     else

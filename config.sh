@@ -38,8 +38,8 @@ LLVM_SYMBOLIZER_PATH="${LLVM_SYMBOLIZER_PATH:-${ZCC_DIR}/bin/llvm-symbolizer}"
 
 # Remote server configuration
 # Need change to your own remote server configuration
-REMOTE_HOST="${REMOTE_HOST:-root@192.168.4.96}"
-REMOTE_PATH="${REMOTE_PATH:-/root/workspace/crux/}"
+REMOTE_HOST="${REMOTE_HOST:-temp-eoHB7j@192.168.4.142}"
+REMOTE_PATH="${REMOTE_PATH:-/home/temp-eoHB7j/workspace/crux}"
 REMOTE="${REMOTE:-${REMOTE_HOST}:${REMOTE_PATH}}"
 
 # Export environment variables for Python scripts
