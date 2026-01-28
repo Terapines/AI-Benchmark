@@ -83,7 +83,7 @@ def warp_kernel(
 
         # Compute output
         out = (right_val.to(tl.int16) << 8)
-        out += (left_val - right_val).to(tl.int16) * offset_fraction.to(tl.int16)
+        out += (left_val.to(tl.int16) - right_val.to(tl.int16))* offset_fraction.to(tl.int16)
         out = (out >> 8).to(tl.int8)
 
         # Compute output indices
