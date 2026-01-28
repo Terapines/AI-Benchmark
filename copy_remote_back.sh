@@ -1,10 +1,8 @@
 #!/bin/bash
 
 DIR=`dirname $0`
-# source configuration file
-source ${DIR}/config.sh
 
-REMOTE=${REMOTE}
+REMOTE=tptuser@192.168.2.68:/home/tptuser/Workspace/crux/
 
 BUILD_DIR=${DIR}/build/
 

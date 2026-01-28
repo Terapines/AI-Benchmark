@@ -4,15 +4,15 @@ RISCV C and Triton AI-Benchmark
 
 ### Directory Description:
 
-1. **Root Directory and use step**：
+1. **Root Directory**：
 
    - `build.sh`: Compiles the kernel and driver into the build directory.
-   - `copy_to_remote.sh`: Copies the compiled ELF files to the remote RISC-V server.
-   - `run.sh`: Runs configurations based on different shapes and generates runtime statistics in RISC-V hardware.
    - `copy_remote_back.sh`: Copies reports and other files back to the local machine.
+   - `copy_to_remote.sh`: Copies the compiled ELF files to the remote RISC-V server.
    - `report.sh`: Generates performance reports.
-   - `plot_autuning.py`: Used to plot the autuning result, help finding the best autuning block shape when MODE is Accuracy in build.sh.
-   - `plot_benchmark.py`: Used to plot the benchmark result when MODE is Benchmark in build.sh.
+   - `run.sh`: Runs configurations based on different shapes and generates runtime statistics.
+   - `plot_autuning.py`: Used to plot the autuning result, help finding the best autuning block shape
+   - `plot_benchmark.py`: Used to plot the benchmark result.
 
    **NOTE**: Need fixed the environment variable in the script.
 

@@ -134,28 +134,13 @@ int main(int argc, char *argv[]) {
 
   auto triton_layernorm_begin_time = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < RUN_COUNT; i++) {
-    _layer_norm_fwd_fused_omp(N, 1, 1,
-                              (uint64_t)x, (void*)x,
-                              (uint64_t)real_out, (void*)real_out,
-                              (uint64_t)w, (void*)w,
-                              (uint64_t)b, (void*)b,
-                              (uint64_t)real_mean, (void*)real_mean,
-                              (uint64_t)real_rstd, (void*)real_rstd,
-                              D, D, 1e-5, &_layer_norm_fwd_fused);
+    _layer_norm_fwd_fused_omp(N, 1, 1, &_layer_norm_fwd_fused, x, real_out, w,
+                              b, real_mean, real_rstd, D, D, 1e-5);
     memset(real_dw, 0, D * sizeof(float));
     memset(real_db, 0, D * sizeof(float));
     // memset(locks, 0, D * sizeof(float));
-    _layer_norm_bwd_fused_omp(N, 1, 1,
-                                 (uint64_t)real_dx, (void*)real_dx,
-                                 (uint64_t)real_dw, (void*)real_dw,
-                                 (uint64_t)real_db, (void*)real_db,
-                                 (uint64_t)dout, (void*)dout,
-                                 (uint64_t)x, (void*)x,
-                                 (uint64_t)w, (void*)w,
-                                 (uint64_t)real_mean, (void*)real_mean,
-                                 (uint64_t)real_rstd, (void*)real_rstd,
-                                 (uint64_t)locks, (void*)locks,
-                                 D, D, &_layer_norm_bwd_fused);
+    _layer_norm_bwd_fused_omp(N, 1, 1, _layer_norm_bwd_fused, real_dx, real_dw, real_db,
+                                 dout, x, w, real_mean, real_rstd, locks, D, D);
   }
 
   auto triton_layernorm_end_time = std::chrono::high_resolution_clock::now();
