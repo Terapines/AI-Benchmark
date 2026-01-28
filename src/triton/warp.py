@@ -4,7 +4,9 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 def get_warp_kernel_autotune_config():
     configs = [
@@ -81,7 +83,7 @@ def warp_kernel(
 
         # Compute output
         out = (right_val.to(tl.int16) << 8)
-        out += (left_val - right_val).to(tl.int16) * offset_fraction.to(tl.int16)
+        out += (left_val.to(tl.int16) - right_val.to(tl.int16))* offset_fraction.to(tl.int16)
         out = (out >> 8).to(tl.int8)
 
         # Compute output indices
@@ -108,9 +110,9 @@ def warp(src_arr, offset_arr, out_arr):
 
 # Example usage:
 C, H, W = 3, 512, 512
-src = torch.ones((C, H, W), dtype=torch.int8, device='cpu')
-offset = torch.zeros((H, W), dtype=torch.int16, device='cpu')  # Example offset values
-out = torch.empty((C, H, W), dtype=torch.int8, device='cpu')
+src = torch.ones((C, H, W), dtype=torch.int8, device=DEVICE)
+offset = torch.zeros((H, W), dtype=torch.int16, device=DEVICE)  # Example offset values
+out = torch.empty((C, H, W), dtype=torch.int8, device=DEVICE)
 
 warp(src, offset, out)
 

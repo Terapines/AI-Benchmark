@@ -1,12 +1,14 @@
+#ifndef SUPPORT_H
+#define SUPPORT_H
+
 #include <algorithm>
 #include <cmath>
 #include <memory>
 #include <optional>
 #include <string>
 #include <vector>
-#include <optional>
-#include <algorithm>
 #include <iostream>
+#include <cstdint>
 
 unsigned int next_power_of_2(unsigned int n);
 
@@ -51,3 +53,5 @@ std::unique_ptr<uint32_t[][3]> get_all_grids(uint32_t gridX, uint32_t gridY,
 
 const std::string TRITON_KERNEL = "Triton Kernel";
 const std::string C_KERNEL = "C Kernel";
+
+#endif // SUPPORT_H

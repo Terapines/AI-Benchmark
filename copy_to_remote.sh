@@ -1,12 +1,20 @@
 #!/bin/bash
 
 DIR=`dirname $0`
+# source configuration file
+source ${DIR}/config.sh
 
-REMOTE=tptuser@192.168.2.68:/home/tptuser/Workspace/crux/
+REMOTE=${REMOTE}
 
 BUILD_DIR=${DIR}/build/
 
 scp -r ${BUILD_DIR}/bin ${REMOTE}
+
+scp -r ${DIR}/config.sh ${REMOTE}
+
+# FIXME: Maybe can delete if we deal StridedMemRefType, which means we don't
+# need to link ztc-mlir-lib
+scp -r /share/rd/temp/ztc-mlir-lib ${REMOTE}
 
 scp -r ${DIR}/run.sh ${REMOTE}
 

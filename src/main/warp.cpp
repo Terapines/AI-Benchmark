@@ -85,7 +85,13 @@ int main(int argc, char *argv[])
     auto begin = std::chrono::high_resolution_clock::now();
     for (int i = 0; i < RUN_COUNT; i++)
     {
-        warp_kernel_omp(gridX, gridY, gridZ, &warp_kernel, input, offset, real_out, C, H, W);
+
+        warp_kernel_omp(gridX, gridY, gridZ,
+                        0, input,           // tx81_ptr0, ptr_arg0 (src_ptr)
+                        0, offset,          // tx81_ptr1, ptr_arg1 (offset_ptr)
+                        0, real_out,        // tx81_ptr2, ptr_arg2 (out_ptr)
+                        C, H, W,           // arg3, arg4, arg5 (channel, height, width)
+                        &warp_kernel);      // kernel_ptr
     }
     auto end = std::chrono::high_resolution_clock::now();
     auto time_interval = std::chrono::duration_cast<std::chrono::milliseconds>(end - begin);

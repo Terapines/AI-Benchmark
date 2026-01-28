@@ -2,7 +2,8 @@ import torch
 
 import triton
 import triton.language as tl
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 import os
 
@@ -132,8 +133,8 @@ def test_matmul():
     cols1 = 167
     rows2 = 167
     cols2 = 321
-    a = torch.randn((rows1, cols1), device='cpu', dtype=torch.float32)
-    b = torch.randn((rows2, cols2), device='cpu', dtype=torch.float32)
+    a = torch.randn((rows1, cols1), device=DEVICE, dtype=torch.float32)
+    b = torch.randn((rows2, cols2), device=DEVICE, dtype=torch.float32)
     # a = torch.full((rows1, cols1), 1, device='cpu', dtype=torch.float32)
     # b = torch.full((rows2, cols2), 1, device='cpu', dtype=torch.float32)
     triton_output = matmul(a, b)

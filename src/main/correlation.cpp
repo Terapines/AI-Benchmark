@@ -108,10 +108,10 @@ int main(int argc, char *argv[]) {
   auto triton_correlation_begin_time =
       std::chrono::high_resolution_clock::now();
   for (int i = 0; i < RUN_COUNT; i++) {
-    correlation_kernel_omp(gridX, gridY, gridZ, &correlation_kernel,
-                           src0_arr_global, src1_arr_global, real_out,
+    correlation_kernel_omp(gridX, gridY, gridZ,
+                           0, src0_arr_global, 0, src1_arr_global, 0, real_out,
                            OUT_CHANNEL, IN_CHANNEL, HEIGHT, WIDTH,
-                           HEIGHT * WIDTH, OUT_SHIFT);
+                           HEIGHT * WIDTH, OUT_SHIFT, &correlation_kernel);
   }
   auto triton_correlation_end_time = std::chrono::high_resolution_clock::now();
 

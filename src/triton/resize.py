@@ -6,7 +6,9 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-triton.runtime.driver.set_active_to_cpu()
+from triton.backends.riscv.driver import CrossDriver
+
+DEVICE = triton.runtime.driver.active.get_active_torch_device()
 
 def get_resize_kernel_autotune_config():
     configs = [
@@ -107,14 +109,10 @@ def resize(src_arr, out_arr):
     )
 
 C, H, W = 3, 512, 512
-src = torch.ones((C, H, W), dtype=torch.int8, device='cpu')
-out = torch.empty((C, 2 * H, 2 * W), dtype=torch.int8, device='cpu')
+src = torch.ones((C, H, W), dtype=torch.int8, device=DEVICE)
+out = torch.empty((C, 2 * H, 2 * W), dtype=torch.int8, device=DEVICE)
 
 resize(src, out)
 
 # print(src)
 # print(out)
-
-
-
-
