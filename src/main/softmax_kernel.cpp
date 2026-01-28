@@ -89,7 +89,7 @@ int main(int argc, char *argv[]) {
 
   auto triton_softmax_begin_time = std::chrono::high_resolution_clock::now();
   for (int i = 0; i < RUN_COUNT; i++) {
-    softmax_kernel_omp(R, 1, 1, 0, real_out, 0, input, C, C, C, &softmax_kernel);
+    softmax_kernel_omp(R, 1, 1, &softmax_kernel, real_out, input, C, C, C);
   }
   auto triton_softmax_end_time = std::chrono::high_resolution_clock::now();
 

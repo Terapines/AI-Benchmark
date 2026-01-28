@@ -1,8 +1,6 @@
 #!/bin/bash
 
 DIR=`dirname $0`
-# Source configuration file
-source ${DIR}/config.sh
 SRC_DIR=${DIR}/src
 BUILD_DIR=${DIR}/build
 
@@ -13,9 +11,18 @@ MODE="Accuracy"
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/run.sh
 sed -i "s/MODE=\(\".*\"\)/MODE=\"${MODE}\"/g" ${DIR}/report.sh
 
+# C compile env
+ARCH=rv64gcv_zvl256b
+ABI=lp64d
+
+GCC="riscv64-unknown-linux-gnu-g++ -march=${ARCH} -mabi=${ABI} -O3"
+ZCC="z++ -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3"
+AR="llvm-ar"
+# OBJDUMP="llvm-objdump"
+
 # Python virtual environment for triton kernel compilation
 PYC="python"
-# TRITON_PLUGIN_DIRS is now from config.sh
+TRITON_PLUGIN_DIRS=~/workspace/AI-Kernel-Library/triton-cpu/
 TRITON_PYTHON_VENV=${TRITON_PLUGIN_DIRS}/.venv
 # triton-cpu kernel launcher
 KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
@@ -28,9 +35,15 @@ KERNEL_LAUNCHER_INCLUDE_DIR=${BUILD_DIR}/aux/include
 
 ### FIXME: Choose which kernels should be compiled
 # Array of "c_kernel triton_kernel driver_path" entries
-# FIXME: Need add more test cases
 drivers=(
+  "${SRC_DIR}/c/correlation.cpp ${SRC_DIR}/triton/correlation.py ${SRC_DIR}/main/correlation.cpp"
+  "${SRC_DIR}/c/layernorm.cpp ${SRC_DIR}/triton/layernorm.py ${SRC_DIR}/main/layernorm.cpp"
   "${SRC_DIR}/c/matmul.cpp ${SRC_DIR}/triton/matmul.py ${SRC_DIR}/main/matmul.cpp"
+  "${SRC_DIR}/c/softmax.cpp ${SRC_DIR}/triton/softmax.py ${SRC_DIR}/main/softmax_kernel.cpp"
+  "${SRC_DIR}/c/rope.cpp ${SRC_DIR}/triton/rope.py ${SRC_DIR}/main/rope.cpp"
+  "${SRC_DIR}/c/dropout.cpp ${SRC_DIR}/triton/dropout.py ${SRC_DIR}/main/dropout.cpp"
+  "${SRC_DIR}/c/resize.cpp ${SRC_DIR}/triton/resize.py ${SRC_DIR}/main/resize.cpp"
+  "${SRC_DIR}/c/warp.cpp ${SRC_DIR}/triton/warp.py ${SRC_DIR}/main/warp.cpp"
 )
 
 # Default clean build directory
@@ -66,8 +79,7 @@ build_c_kernel_lib() {
   for kernel in ${C_KERNELS[@]}; do
     name=`basename ${kernel} .cpp`
     echo ${kernel}
-    # FIXME: Maybe need find a good way to use -fopenmp
-    ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -lgomp -o ${OBJ_DIR}/${name}.o
+    ${COMPILER} -fPIC -I ${DIR}/include -c ${kernel} -fopenmp -o ${OBJ_DIR}/${name}.o
   done
 
   find ${OBJ_DIR} -not -name "support.o" -name "*.o" | xargs ${AR} rcs ${LIB_DIR}/libkernel.a
@@ -80,18 +92,18 @@ build_triton_kernel_lib() {
   for kernel in ${TRITON_KERNELS[@]}; do
     name=`basename ${kernel} .py`
 
+    ### FIXME: Modified triton-cpu to generate these files to the BUILD_DIR direcly
     KERNEL_AUX_FILE_DIR=${BUILD_DIR}/aux/src/${name}/
     mkdir -p ${KERNEL_AUX_FILE_DIR}
 
     echo ${kernel}
     # compile triton kernel: .py --> .llir + launcher.cpp
     # TRITON_ALWAYS_COMPILE=1 MLIR_ENABLE_DUMP=1
-    KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} RUN_RISC_V=${RUN_RISC_V} ${PYC} ${kernel}
+    KERNEL_LAUNCHER_INCLUDE_DIR=${KERNEL_LAUNCHER_INCLUDE_DIR} KERNEL_AUX_FILE_DIR=${KERNEL_AUX_FILE_DIR} ${PYC} ${kernel}
 
     # TODO: Update Clang version
     # For now, we just replace the trunc n[us]w with trunc
-    # Also remove captures(none) attributes for RISC-V compatibility
-    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g; s/\s*captures(none)//g' ${KERNEL_AUX_FILE_DIR}/*.llir
+    sed -i 's/trunc nuw nsw/trunc/g; s/trunc nuw/trunc/g; s/trunc nsw/trunc/g' ${KERNEL_AUX_FILE_DIR}/*.llir
 
     # build triton kernel: .llir --> .o
     for kernel_ir in ${KERNEL_AUX_FILE_DIR}/*.llir; do
@@ -100,16 +112,15 @@ build_triton_kernel_lib() {
       # llc -march=riscv64 -mattr=+d,v  ${kernel_ir} -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
       # z++ -march=rv64gcv -fno-lto --target=riscv64-unknown-linux-gnu -S -x ir  -O2 ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
 
-      ${COMPILER} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+      ${ZCC} -S -x ir ${kernel_ir} -mllvm --riscv-disable-rvv-fixedlen=false -mrvv-vector-bits=256 -o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
 
-      ${COMPILER} -c -o ${OBJ_DIR}/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
+      ${ZCC} -c -o ${OBJ_DIR}/${kernel_name}.o ${KERNEL_AUX_FILE_DIR}/${kernel_name}.s
     done
 
     # build triton laucher: launcher.cpp --> .o
     for kernel_launcher in ${KERNEL_AUX_FILE_DIR}/*.cpp; do
       launcher_name=`basename ${kernel_launcher} .cpp`
-      # FIXME: Maybe need find a good way to use -fopenmp
-      ${COMPILER} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -c ${kernel_launcher} -lgomp -o ${OBJ_DIR}/${launcher_name}.o
+      ${ZCC} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -c ${kernel_launcher} -fopenmp -o ${OBJ_DIR}/${launcher_name}.o
     done
 
   done
@@ -181,8 +192,7 @@ build_driver(){
 
     # Compile driver
     # .elf suffix to avoid scp problem(same name dir and kernel)
-    # FIXME:lmlir_c_runner_utils is for memrefcopy function in ztc, maybe we need to remove it in the future
-    ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -L/share/rd/temp/ztc-mlir-lib -lmlir_c_runner_utils -lmlir_float16_utils -lstdc++ -lm -lgomp -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
+    ${COMPILER} ${main} -I ${DIR}/include -I ${KERNEL_LAUNCHER_INCLUDE_DIR} -L ${LIB_DIR} -fopenmp -lkernel -lsupport -latomic -std=c++17 -D${KERNEL_ENABLE} -fPIC -o ${KERNEL_BIN_DIR}/${name}.elf
 
     # ${OBJDUMP} -d ${KERNEL_BIN_DIR}/${name}.elf &> ${KERNEL_BIN_DIR}/${name}.elf.s
 
@@ -309,11 +319,6 @@ done
 export C_KERNELS
 export TRITON_KERNELS
 export DRIVERS
-
-# Add ztc module to the PYTHONPATH, so that python can import ztc plugins
-export PYTHONPATH=${TRITON_PLUGIN_DIRS}/python:${PYTHONPATH}
-# Avoid cache the compiled kernel
-export TRITON_ALWAYS_COMPILE=1
 
 echo "C_KERNELS : "${C_KERNELS}
 echo "TRITON_KERNELS : "${TRITON_KERNELS}

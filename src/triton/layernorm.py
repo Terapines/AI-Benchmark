@@ -37,9 +37,7 @@ import triton.language as tl
 import os
 
 USE_GPU = False
-from triton.backends.riscv.driver import CrossDriver
-
-DEVICE = triton.runtime.driver.active.get_active_torch_device()
+triton.runtime.driver.set_active_to_cpu()
 
 
 def get_layer_norm_fwd_fused_autotune_config():
@@ -84,14 +82,14 @@ def _layer_norm_fwd_fused(
     _mean = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
     for off in range(0, N, BLOCK_SIZE):
         cols = off + tl.arange(0, BLOCK_SIZE)
-        a = tl.cast(tl.load(X + cols, mask=cols < N, other=0.), tl.float32)
+        a = tl.load(X + cols, mask=cols < N, other=0.).to(tl.float32)
         _mean += a
     mean = tl.sum(_mean, axis=0) / N
     # Compute variance
     _var = tl.zeros([BLOCK_SIZE], dtype=tl.float32)
     for off in range(0, N, BLOCK_SIZE):
         cols = off + tl.arange(0, BLOCK_SIZE)
-        x = tl.cast(tl.load(X + cols, mask=cols < N, other=0.), tl.float32)
+        x = tl.load(X + cols, mask=cols < N, other=0.).to(tl.float32)
         x = tl.where(cols < N, x - mean, 0.)
         _var += x * x
     var = tl.sum(_var, axis=0) / N
@@ -105,7 +103,7 @@ def _layer_norm_fwd_fused(
         mask = cols < N
         w = tl.load(W + cols, mask=mask)
         b = tl.load(B + cols, mask=mask)
-        x = tl.cast(tl.load(X + cols, mask=mask, other=0.), tl.float32)
+        x = tl.load(X + cols, mask=mask, other=0.).to(tl.float32)
         x_hat = (x - mean) * rstd
         y = x_hat * w + b
         # Write output
@@ -193,9 +191,9 @@ def _layer_norm_bwd_fused(DX,  # pointer to the input gradient
     for off in range(0, N, BLOCK_SIZE_N):
       cols = off + tl.arange(0, BLOCK_SIZE_N)
       mask = cols < N
-      x = tl.cast(tl.load(X + cols, mask=mask, other=0), tl.float32)
-      dy = tl.cast(tl.load(DY + cols, mask=mask, other=0), tl.float32)
-      w = tl.cast(tl.load(W + cols, mask=mask), tl.float32)
+      x = tl.load(X + cols, mask=mask, other=0).to(tl.float32)
+      dy = tl.load(DY + cols, mask=mask, other=0).to(tl.float32)
+      w = tl.load(W + cols, mask=mask).to(tl.float32)
       # Compute dx
       xhat = (x - mean) * rstd
       wdy = w * dy
@@ -213,9 +211,9 @@ def _layer_norm_bwd_fused(DX,  # pointer to the input gradient
 
       cols = off + tl.arange(0, BLOCK_SIZE_N)
       mask = cols < N
-      x = tl.cast(tl.load(X + cols, mask=mask, other=0), tl.float32)
-      dy = tl.cast(tl.load(DY + cols, mask=mask, other=0), tl.float32)
-      w = tl.cast(tl.load(W + cols, mask=mask), tl.float32)
+      x = tl.load(X + cols, mask=mask, other=0).to(tl.float32)
+      dy = tl.load(DY + cols, mask=mask, other=0).to(tl.float32)
+      w = tl.load(W + cols, mask=mask).to(tl.float32)
       # Compute dx
       xhat = (x - mean) * rstd
       wdy = w * dy
@@ -307,12 +305,12 @@ class LayerNorm(torch.autograd.Function):
 
 
 layer_norm = LayerNorm.apply
-device = DEVICE
+device = 'cpu'
 # Torch doesn't support operations in float16 on CPU so use float32 instead
 dtype = torch.float32 if device == 'cpu' else torch.float16
 
 
-def test_layer_norm(M, N, dtype, eps=1e-5, device=DEVICE):
+def test_layer_norm(M, N, dtype, eps=1e-5, device='cpu'):
     # create data
     x_shape = (M, N)
     w_shape = (x_shape[-1], )

@@ -84,8 +84,8 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < RUN_COUNT; i++) {
     matmul_kernel_omp(ceil(1.0 * M / matmul_kernel_BLOCK_SIZE_M) *
                           ceil(1.0 * N / matmul_kernel_BLOCK_SIZE_N),
-                      1, 1, 0, arg0, 0, arg1, 0, real_out, M, N, K, K,
-                      N, N, matmul_kernel);
+                      1, 1, matmul_kernel, arg0, arg1, real_out, M, N, K, K, 1,
+                      N, 1, N, 1);
   }
   high_resolution_clock::time_point endTime = high_resolution_clock::now();
   milliseconds timeInterval =

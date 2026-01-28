@@ -1,8 +1,6 @@
 #!/bin/bash
 
 DIR=`dirname $0`
-# source configuration file
-source ${DIR}/config.sh
 
 BENCHMARK=${DIR}/build/bin
 
@@ -13,8 +11,8 @@ MODE="Accuracy"
 ARCH=rv64gcv
 ABI=lp64d
 
-GCC="${GCC_PATH} -march=${ARCH} -mabi=${ABI} -O3 -fopenmp -fPIC"
-ZCC="${ZCC_PATH} -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3 -fopenmp -fPIC -I${MLIR_INCLUDE_DIR}"
+GCC="riscv64-unknown-linux-gnu-g++ -march=${ARCH} -mabi=${ABI} -O3 -fopenmp -fPIC"
+ZCC="z++ -fno-lto --target=riscv64-unknown-linux-gnu -march=${ARCH} -mabi=${ABI} -O3 -fopenmp -fPIC"
 
 
 # | #####  softmax_kernel kernel performance ##### |
